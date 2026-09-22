@@ -1,0 +1,6 @@
+[submodule "web-app"]
+	path = web-app
+	url = https://github.com/hariprasanth-dev/leave-management.git
+[submodule "web-api"]
+	path = web-api
+	url = https://github.com/hariprasanth-dev/leave-management.git
