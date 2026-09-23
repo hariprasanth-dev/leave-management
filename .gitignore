@@ -1,22 +1,12 @@
-﻿# Dependencies & build
-node_modules/
-dist/
-dist-ssr/
-
-# Env & logs
+# Root monorepo helpers
+.DS_Store
+.idea/
+.vscode/
+*.log
 .env
 .env.local
-*.local
-*.log
-npm-debug.log*
-
-# Editor
-.vscode/*
-!.vscode/extensions.json
-.idea/
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+node_modules/
+dist/
+*.pyc
+__pycache__/
+.venv/
