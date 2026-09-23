@@ -13,8 +13,10 @@ class Settings(BaseSettings):
     password_reset_expire_minutes: int = 60
     frontend_url: str = "http://localhost:5173"
 
-    # SQLite for local Phase 3 without Docker; use Postgres in compose/prod.
-    database_url: str = "sqlite+pysqlite:///./leaveflow.db"
+    # Local default: PostgreSQL database leave_management_api
+    database_url: str = (
+        "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/leave_management_api"
+    )
 
     auth_service_url: str = "http://localhost:8001"
     employee_service_url: str = "http://localhost:8002"

@@ -1,4 +1,4 @@
-"""Phase 7 Module 2 employee workflow E2E checks against the local gateway."""
+"""Employee CRUD E2E checks against the local API gateway."""
 from __future__ import annotations
 
 import uuid

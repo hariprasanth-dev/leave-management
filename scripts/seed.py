@@ -212,5 +212,29 @@ def seed() -> None:
         db.close()
 
 
+def ensure_manager_permissions() -> None:
+    """Idempotent: grant employee:manage to manager (needed for Module 2 demos)."""
+    db = SessionLocal()
+    try:
+        manager = db.scalars(select(Role).where(Role.name == "manager")).first()
+        perm = db.scalars(select(Permission).where(Permission.code == "employee:manage")).first()
+        if not manager or not perm:
+            return
+        exists = db.scalars(
+            select(RolePermission).where(
+                RolePermission.role_id == manager.id,
+                RolePermission.permission_id == perm.id,
+            )
+        ).first()
+        if exists:
+            return
+        db.add(RolePermission(role_id=manager.id, permission_id=perm.id))
+        db.commit()
+        print("Granted employee:manage to manager role")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     seed()
+    ensure_manager_permissions()

@@ -1,4 +1,4 @@
-"""Phase 6 Module 1 leave workflow E2E checks against the local gateway."""
+"""Leave workflow E2E checks against the local API gateway."""
 from __future__ import annotations
 
 from datetime import date, timedelta

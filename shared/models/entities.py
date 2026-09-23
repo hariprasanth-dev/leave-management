@@ -244,7 +244,7 @@ class LeaveBalance(Base, TimestampMixin):
         CheckConstraint("entitled >= 0", name="ck_leave_balances_entitled"),
         CheckConstraint("used >= 0", name="ck_leave_balances_used"),
         CheckConstraint("pending >= 0", name="ck_leave_balances_pending"),
-        CheckConstraint("used + pending <= entitled + 1", name="ck_leave_balances_cap"),
+        CheckConstraint("used + pending <= entitled", name="ck_leave_balances_cap"),
         Index("ix_leave_balances_employee_id", "employee_id"),
         Index("ix_leave_balances_year", "year"),
     )

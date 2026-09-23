@@ -152,7 +152,7 @@ def upgrade() -> None:
         sa.CheckConstraint("entitled >= 0", name="ck_leave_balances_entitled"),
         sa.CheckConstraint("used >= 0", name="ck_leave_balances_used"),
         sa.CheckConstraint("pending >= 0", name="ck_leave_balances_pending"),
-        sa.CheckConstraint("used + pending <= entitled + 1", name="ck_leave_balances_cap"),
+        sa.CheckConstraint("used + pending <= entitled", name="ck_leave_balances_cap"),
         sa.ForeignKeyConstraint(["employee_id"], ["employees.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["leave_type_id"], ["leave_types.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),

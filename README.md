@@ -16,31 +16,6 @@ Repository
 PostgreSQL
 ```
 
-## Data model (Phase 2)
-
-| Table | Purpose | PK | Key FKs / constraints |
-|-------|---------|----|------------------------|
-| `roles` | RBAC roles | `id` | unique `name` |
-| `permissions` | Capability codes | `id` | unique `code` |
-| `role_permissions` | Role ↔ permission | `(role_id, permission_id)` | FKs cascade |
-| `users` | Auth identity | `id` | unique `email`, index `is_active` |
-| `user_roles` | User ↔ role | `(user_id, role_id)` | FKs cascade |
-| `departments` | Org units | `id` | unique `name`, `code` |
-| `employees` | HR profile | `id` | FK `user_id` (1:1), `department_id`, self-FK `manager_id` |
-| `leave_types` | Leave catalog | `id` | unique `code`, `default_days_per_year >= 0` |
-| `leave_balances` | Entitlement ledger | `id` | unique `(employee_id, leave_type_id, year)` |
-| `leave_requests` | Leave applications | `id` | FKs employee/type; `end_date >= start_date`; status check |
-| `leave_approvals` | Approval audit | `id` | FKs request/approver; action check |
-| `holidays` | Non-working days | `id` | unique `holiday_date` |
-
-Relationships:
-- users 1—1 employees
-- departments 1—* employees
-- employees 1—* employees (manager → reports)
-- employees 1—* leave_balances *—1 leave_types
-- employees 1—* leave_requests *—1 leave_types
-- leave_requests 1—* leave_approvals *—1 employees (approver)
-
 ## Services
 
 | Service | Port | Responsibility |
@@ -50,64 +25,74 @@ Relationships:
 | **employee-service** | 8002 | Employees & org |
 | **leave-service** | 8003 | Requests & balances |
 | **approval-service** | 8004 | Approve / reject + audit |
-| **postgres** | 5432 | Shared database (Phase 2) |
 
-## Quick start
+## Quick start (local PostgreSQL)
 
-### 1. Start PostgreSQL
+1. Create a database named `leave_management_api` (Postgres 16+).
+2. Copy env and set credentials if needed:
 
 ```bash
-docker compose up -d postgres
+copy .env.example .env
 ```
 
-Or point `DATABASE_URL` at any Postgres 16+ instance.
+Default connection:
 
-### 2. Install & migrate
+```
+postgresql+psycopg://postgres:postgres@127.0.0.1:5432/leave_management_api
+```
+
+3. Install, migrate, seed:
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # macOS / Linux
+.venv\Scripts\activate
 pip install -r requirements.txt
-copy .env.example .env          # Windows
-# cp .env.example .env
-
 alembic upgrade head
 python scripts/seed.py
 ```
 
-### 3. Run APIs
+4. Start all services:
 
 ```bash
 .\scripts\start-local.bat
-# or docker compose up --build
 ```
 
-- Gateway docs: http://localhost:8000/docs
+- Gateway docs: http://127.0.0.1:8000/docs
 
 ## Demo credentials
 
 - `employee@example.com` / `password123`
 - `manager@example.com` / `password123`
 
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/seed.py` | Demo users, policy, balances |
+| `scripts/reset_db.py` | Drop/recreate schema, migrate, seed |
+| `scripts/e2e_leaves.py` | Leave workflow smoke test |
+| `scripts/e2e_employees.py` | Employee CRUD smoke test |
+| `scripts/start-local.bat` | Start gateway + 4 services |
+
 ## Layout
 
 ```
 web-api/
-├── alembic/                 # Migrations
+├── alembic/
 ├── gateway/
-├── scripts/seed.py
+├── scripts/
 ├── services/
 │   ├── auth_service/
 │   ├── employee_service/
 │   ├── leave_service/
 │   └── approval_service/
 ├── shared/
-│   ├── db/                  # Engine + session
-│   ├── models/              # SQLAlchemy entities
-│   ├── repositories/        # Data access
-│   ├── services/            # Domain services
-│   ├── schemas.py           # API DTOs
+│   ├── auth/
+│   ├── db/
+│   ├── models/
+│   ├── repositories/
+│   ├── services/
+│   ├── schemas.py
 │   └── config.py
 ├── docker-compose.yml
 └── requirements.txt
