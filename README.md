@@ -28,7 +28,8 @@ PostgreSQL
 
 ## Quick start (local PostgreSQL)
 
-1. Create a database named `leave_management_api` (Postgres 16+).
+1. Create a database named **`leave_management_api`** (Postgres 16+).  
+   Do **not** use `leave_management_db` — the API does not write there.
 2. Copy env and set credentials if needed:
 
 ```bash
@@ -40,6 +41,18 @@ Default connection:
 ```
 postgresql+psycopg://postgres:postgres@127.0.0.1:5432/leave_management_api
 ```
+
+### Where data lives (pgAdmin / DBeaver)
+
+| What you added in the UI | Tables / views to open |
+|--------------------------|------------------------|
+| Employee (name, email) | `users` + `employees`, or view **`v_employee_directory`** |
+| Leave request | `leave_requests`, or view **`v_leave_request_list`** |
+| Leave balances | `leave_balances` |
+
+`employees` has codes and FKs only — **full name and email are on `users`**.
+
+Confirm the live connection: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db)
 
 3. Install, migrate, seed:
 

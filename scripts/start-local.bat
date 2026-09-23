@@ -28,7 +28,9 @@ start "leave-gateway" "%UVICORN%" gateway.main:app --reload --port 8000 --host 1
 echo.
 echo Backend started:
 echo   Gateway  http://127.0.0.1:8000/docs
+echo   DB check http://127.0.0.1:8000/health/db
 echo   Auth     :8001  Employee :8002  Leave :8003  Approval :8004
+echo   Database leave_management_api  (not leave_management_db)
 echo.
 echo Next: start frontend with:
 echo   cd ..\web-app

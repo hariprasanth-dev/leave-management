@@ -42,6 +42,39 @@ def health() -> HealthResponse:
     return HealthResponse(status="ok", service="gateway")
 
 
+@app.get("/health/db")
+def health_db() -> dict[str, Any]:
+    """Show which PostgreSQL database the API is writing to (for local debugging)."""
+    from sqlalchemy import text
+
+    from shared.db.session import engine
+
+    url = settings.database_url
+    # Never return password in health output
+    safe_url = url.split("@")[-1] if "@" in url else url
+    try:
+        with engine.connect() as conn:
+            db_name = conn.execute(text("SELECT current_database()")).scalar()
+            counts = {
+                "employees": conn.execute(text("SELECT count(*) FROM employees")).scalar(),
+                "users": conn.execute(text("SELECT count(*) FROM users")).scalar(),
+                "leave_requests": conn.execute(text("SELECT count(*) FROM leave_requests")).scalar(),
+            }
+        return {
+            "status": "ok",
+            "database": db_name,
+            "host": safe_url,
+            "counts": counts,
+            "browse_views": ["v_employee_directory", "v_leave_request_list"],
+            "hint": (
+                "Open database leave_management_api (not leave_management_db). "
+                "Names/emails are on users or view v_employee_directory, not employees alone."
+            ),
+        }
+    except Exception as exc:  # noqa: BLE001 — health must never 500-hide connection errors
+        return {"status": "error", "host": safe_url, "detail": str(exc)}
+
+
 @app.get("/health/services")
 async def health_services() -> dict[str, Any]:
     results: dict[str, Any] = {}
