@@ -1,4 +1,4 @@
-﻿[submodule "web-app"]
+[submodule "web-app"]
 	path = web-app
 	url = https://github.com/hariprasanth-dev/leave-management.git
 	branch = web-app
