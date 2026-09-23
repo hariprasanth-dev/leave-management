@@ -47,7 +47,12 @@ npm install
 npm run dev
 ```
 
+Opens http://127.0.0.1:5173 and calls the API at `http://127.0.0.1:8000`
+(see `web-app/.env` → `VITE_API_BASE_URL`).
+
 ### Backend + database
+
+Requires a local PostgreSQL database named `leave_management_api`.
 
 ```bash
 cd web-api
@@ -55,18 +60,14 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
+# Edit .env DATABASE_URL if your postgres password is not "postgres"
 
-# Local SQLite (no Docker needed):
-python -m scripts.init_db
+alembic upgrade head
+python scripts/seed.py
 .\scripts\start-local.bat
-
-# Or Postgres via Docker:
-# docker compose up -d postgres
-# alembic upgrade head
-# python scripts/seed.py
 ```
 
-Open http://localhost:5173 → `/login` → `employee@example.com` / `password123` → Dashboard.
+Open http://127.0.0.1:5173 → `/login` → `employee@example.com` / `password123` → Dashboard.
 
 ## Sample credentials
 
@@ -115,6 +116,6 @@ Employee service (`/api/employees`):
 
 - Single-org MVP; managers see all employees when they have manage permission
 - Soft-delete only (deactivate) — leave history retained
-- SQLite is used for local demo when Postgres/Docker is unavailable
+- Local development uses PostgreSQL (`leave_management_api`)
 - No email notifications, half-day leave, or holiday calendar
 - JWT access + refresh; roles: employee / manager / hr / admin
