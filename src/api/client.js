@@ -1,4 +1,5 @@
 import axios from 'axios'
+import config from '../config'
 
 const STORAGE_KEYS = {
   access: 'access_token',
@@ -26,16 +27,19 @@ export function clearTokens() {
 }
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  baseURL: config.apiBaseUrl,
   headers: { 'Content-Type': 'application/json' },
 })
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use((requestConfig) => {
   const token = getAccessToken()
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+    requestConfig.headers.Authorization = `Bearer ${token}`
   }
-  return config
+  if (config.apiKey) {
+    requestConfig.headers['X-API-Key'] = config.apiKey
+  }
+  return requestConfig
 })
 
 let refreshPromise = null
@@ -46,7 +50,7 @@ async function refreshAccessToken() {
     throw new Error('No refresh token')
   }
   const { data } = await axios.post(
-    `${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/refresh`,
+    `${config.apiBaseUrl}/api/auth/refresh`,
     { refresh_token },
   )
   setTokens(data)
