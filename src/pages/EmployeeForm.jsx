@@ -15,7 +15,7 @@ const emptyForm = {
   is_active: true,
 }
 
-export function EmployeeFormPage() {
+export function EmployeeForm() {
   const { id } = useParams()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
@@ -105,7 +105,7 @@ export function EmployeeFormPage() {
           role: form.role,
           is_active: form.is_active,
         })
-        navigate(`/team/${updated.id}`)
+        navigate(`/employees/${updated.id}`)
       } else {
         const created = await employeeApi.create({
           email: form.email.trim(),
@@ -117,7 +117,7 @@ export function EmployeeFormPage() {
           hire_date: form.hire_date || null,
           role: form.role,
         })
-        navigate(`/team/${created.id}`)
+        navigate(`/employees/${created.id}`)
       }
     } catch (err) {
       setError(authApi.errorMessage(err, 'Failed to save employee'))
@@ -137,7 +137,7 @@ export function EmployeeFormPage() {
               : 'Creates a login account and default leave balances (Earned 12 + Sick 10).'}
           </p>
         </div>
-        <Link className="btn ghost" to={isEdit ? `/team/${id}` : '/team'}>
+        <Link className="btn ghost" to={isEdit ? `/employees/${id}` : '/employees'}>
           Cancel
         </Link>
       </header>

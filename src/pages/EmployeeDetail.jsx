@@ -64,7 +64,7 @@ export function EmployeeDetail() {
     return (
       <div className="page">
         <p className="banner error">{error}</p>
-        <button type="button" className="btn ghost" onClick={() => navigate('/team')}>
+        <button type="button" className="btn ghost" onClick={() => navigate('/employees')}>
           Back to team
         </button>
       </div>
@@ -81,11 +81,11 @@ export function EmployeeDetail() {
           </p>
         </div>
         <div className="list-actions">
-          <Link className="btn ghost" to="/team">
+          <Link className="btn ghost" to="/employees">
             Back
           </Link>
           {canManage && (
-            <Link className="btn primary" to={`/team/${employee.id}/edit`}>
+            <Link className="btn primary" to={`/employees/${employee.id}/edit`}>
               Edit
             </Link>
           )}
@@ -120,7 +120,7 @@ export function EmployeeDetail() {
             <dt>Manager</dt>
             <dd>
               {employee.manager_id ? (
-                <Link to={`/team/${employee.manager_id}`}>{employee.manager_name || 'View'}</Link>
+                <Link to={`/employees/${employee.manager_id}`}>{employee.manager_name || 'View'}</Link>
               ) : (
                 '—'
               )}

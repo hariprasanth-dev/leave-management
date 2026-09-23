@@ -59,12 +59,8 @@ api.interceptors.response.use(
     const original = error.config
     const status = error.response?.status
 
-    if (status === 403 && typeof window !== 'undefined') {
-      const path = window.location.pathname
-      if (path !== '/forbidden' && path !== '/login') {
-        window.location.assign('/forbidden')
-      }
-    }
+    // Do not hard-redirect on every 403 — pages handle permission errors.
+    // Route guards (RequirePermission) already protect unauthorized screens.
 
     if (
       status === 401 &&
@@ -83,6 +79,9 @@ api.interceptors.response.use(
       } catch (refreshError) {
         refreshPromise = null
         clearTokens()
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.assign('/login')
+        }
         return Promise.reject(refreshError)
       }
     }

@@ -7,7 +7,8 @@ import { ApplyLeave } from './pages/ApplyLeave'
 import { Approvals } from './pages/Approvals'
 import { Dashboard } from './pages/Dashboard'
 import { EmployeeDetail } from './pages/EmployeeDetail'
-import { EmployeeFormPage } from './pages/EmployeeFormPage'
+import { EmployeeForm } from './pages/EmployeeForm'
+import { EmployeesPage } from './pages/EmployeesPage'
 import { ForbiddenPage } from './pages/ForbiddenPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { LoginPage } from './pages/LoginPage'
@@ -18,7 +19,6 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SettingsPage } from './pages/SettingsPage'
-import { TeamPage } from './pages/TeamPage'
 import './pages/auth.css'
 import './pages/pages.css'
 
@@ -49,12 +49,12 @@ export default function App() {
                 <Route path="approvals" element={<Approvals />} />
               </Route>
               <Route element={<RequirePermission permission={PERMISSIONS.EMPLOYEE_MANAGE} />}>
-                <Route path="team/new" element={<EmployeeFormPage />} />
-                <Route path="team/:id/edit" element={<EmployeeFormPage />} />
+                <Route path="employees/new" element={<EmployeeForm />} />
+                <Route path="employees/:id/edit" element={<EmployeeForm />} />
               </Route>
               <Route element={<RequirePermission permission={PERMISSIONS.EMPLOYEE_READ} />}>
-                <Route path="team" element={<TeamPage />} />
-                <Route path="team/:id" element={<EmployeeDetail />} />
+                <Route path="employees" element={<EmployeesPage />} />
+                <Route path="employees/:id" element={<EmployeeDetail />} />
               </Route>
               <Route path="profile" element={<ProfilePage />} />
               <Route path="settings" element={<SettingsPage />} />

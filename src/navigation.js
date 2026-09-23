@@ -38,7 +38,7 @@ export const NAV_SECTIONS = [
     label: 'Organization',
     items: [
       {
-        to: '/team',
+        to: '/employees',
         label: 'Employees',
         crumb: 'Employees',
         permission: PERMISSIONS.EMPLOYEE_READ,
@@ -60,8 +60,8 @@ export const CRUMB_MAP = {
   '/leaves': 'My Leaves',
   '/apply': 'Apply Leave',
   '/approvals': 'Approvals',
-  '/team': 'Employees',
-  '/team/new': 'Add employee',
+  '/employees': 'Employees',
+  '/employees/new': 'Add employee',
   '/profile': 'Profile',
   '/settings': 'Settings',
   '/forbidden': 'Forbidden',

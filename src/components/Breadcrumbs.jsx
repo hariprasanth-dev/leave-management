@@ -19,10 +19,10 @@ export function Breadcrumbs() {
       if (parts[0] === 'leaves' && parts.length === 2 && part === parts[1]) {
         label = 'Request detail'
       }
-      if (parts[0] === 'team' && parts.length === 2 && part === parts[1] && part !== 'new') {
+      if (parts[0] === 'employees' && parts.length === 2 && part === parts[1] && part !== 'new') {
         label = 'Employee'
       }
-      if (parts[0] === 'team' && parts.length === 3 && part === 'edit') {
+      if (parts[0] === 'employees' && parts.length === 3 && part === 'edit') {
         label = 'Edit'
       }
       items.push({ to: path, label })

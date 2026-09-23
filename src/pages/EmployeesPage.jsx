@@ -8,7 +8,7 @@ import './pages.css'
 
 const PAGE_SIZE = 8
 
-export function TeamPage() {
+export function EmployeesPage() {
   const { user, can } = useAuth()
   const canManage = can(PERMISSIONS.EMPLOYEE_MANAGE)
 
@@ -100,7 +100,7 @@ export function TeamPage() {
           </p>
         </div>
         {canManage && (
-          <Link className="btn primary" to="/team/new">
+          <Link className="btn primary" to="/employees/new">
             Add employee
           </Link>
         )}
@@ -151,7 +151,7 @@ export function TeamPage() {
           <h2>No employees found</h2>
           <p className="muted">Try another search or add a new employee.</p>
           {canManage && (
-            <Link className="btn primary" to="/team/new">
+            <Link className="btn primary" to="/employees/new">
               Add employee
             </Link>
           )}
@@ -163,7 +163,7 @@ export function TeamPage() {
           {employees.map((emp) => (
             <li key={emp.id}>
               <div>
-                <Link className="list-title" to={`/team/${emp.id}`}>
+                <Link className="list-title" to={`/employees/${emp.id}`}>
                   {emp.full_name}
                 </Link>
                 <p className="muted">
@@ -176,7 +176,7 @@ export function TeamPage() {
                   {emp.is_active ? 'active' : 'inactive'}
                 </span>
                 {canManage && (
-                  <Link className="btn ghost" to={`/team/${emp.id}/edit`}>
+                  <Link className="btn ghost" to={`/employees/${emp.id}/edit`}>
                     Edit
                   </Link>
                 )}
