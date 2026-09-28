@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from services.auth_service.routes import router as auth_router
 from shared.config import settings
 from shared.schemas import HealthResponse
 
@@ -20,6 +21,9 @@ app = FastAPI(
     version="0.1.0",
     description="Routes client traffic to LeaveFlow microservices.",
 )
+
+# Auth runs on the gateway (same DB) so login works when only the gateway is deployed.
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 app.add_middleware(
     CORSMiddleware,
@@ -90,9 +94,6 @@ async def health_services() -> dict[str, Any]:
 
 def _upstream_path(service: str, path: str) -> str:
     """Map gateway /api/{service}/... to the service's own routes."""
-    if service == "auth":
-        # /api/auth/login -> /login, /api/auth/me -> /me
-        return f"/{path}" if path else "/"
     if service == "employees":
         return f"/employees/{path}" if path else "/employees"
     if service == "leaves":
@@ -105,6 +106,12 @@ def _upstream_path(service: str, path: str) -> str:
 @app.api_route("/api/{service}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @app.api_route("/api/{service}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy(service: str, request: Request, path: str = "") -> Response:
+    if service == "auth":
+        raise HTTPException(
+            status_code=404,
+            detail="Use /api/auth/login, /api/auth/me, and other documented auth routes.",
+        )
+
     base_url = ROUTE_MAP.get(service)
     if not base_url:
         raise HTTPException(status_code=404, detail=f"Unknown service '{service}'")
