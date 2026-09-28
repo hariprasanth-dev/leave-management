@@ -1,181 +1,276 @@
-# LeaveFlow API (`web-api`)
+# LeaveFlow backend — run it on your computer
 
-Python FastAPI microservices for LeaveFlow (database, auth, employees, leaves, approvals).
+This folder is the **backend**. It stores people, leave requests, and passwords in a database, and answers the website when someone signs in or applies for leave.
 
-**First time running the full app?** Start with the non-technical setup in the repo root: **[../README.md](../README.md)** — install PostgreSQL, copy **`.env`** (not `.env.example`), migrate, seed, then `scripts\start-local.bat` and `web-app` → `npm run dev`.
+The website will not work until this backend is running. After the first setup, starting it takes about one minute.
+
+**Using a Windows PC?** Follow the steps below in order.  
+**Using a Mac?** The same steps apply. Where a command is different, the Mac version is written underneath.
 
 ---
 
-## Architecture
+## What you need (install once)
 
+Install these three programs. After each install, close any open terminal windows and open a new one.
+
+### 1. Python
+
+1. Open [https://www.python.org/downloads/](https://www.python.org/downloads/).
+2. Download **Python 3.11 or newer**.
+3. Run the installer.
+4. On the first screen, tick **Add python.exe to PATH**.
+5. Click **Install Now**.
+
+### 2. PostgreSQL (the database)
+
+1. Open [https://www.postgresql.org/download/windows/](https://www.postgresql.org/download/windows/) (Mac: [https://www.postgresql.org/download/](https://www.postgresql.org/download/)).
+2. Download **PostgreSQL 16** or newer and run the installer.
+3. When it asks for a password for the `postgres` user, type a password you will remember. This guide uses **`postgres`**. If you pick a different password, you will type it into a settings file in Step 2 below.
+4. Leave the port as **5432**.
+5. Finish the installer. It also installs **pgAdmin**, which you will use to create the database.
+
+### 3. Check that Python works
+
+1. Press the **Windows** key, type **PowerShell**, and open **Windows PowerShell**.
+2. Paste this line and press **Enter** (right-click pastes in some PowerShell windows):
+
+```powershell
+python --version
 ```
-Frontend
-   ↓
-FastAPI (gateway + services)
-   ↓
-Service
-   ↓
-Repository
-   ↓
-PostgreSQL
+
+You should see something like `Python 3.11` or higher. If Windows says it cannot find `python`, reinstall Python and tick **Add python.exe to PATH**, then open a **new** PowerShell window.
+
+On a Mac, open **Terminal** and run `python3 --version`.
+
+---
+
+## First-time setup
+
+Do this **once** on each computer. In the commands below, replace `D:\MVP\leave-management` with the folder where this project is saved. In File Explorer, the address bar shows that path. You can copy it from there.
+
+### Step 1 — Create the database
+
+1. Open **pgAdmin 4** from the Start menu.
+2. If it asks for a master password, set one and remember it. This password only unlocks pgAdmin on your PC.
+3. In the left panel, click **Servers**, then **PostgreSQL**.
+4. Enter the `postgres` password you chose during install.
+5. Right-click **Databases** → **Create** → **Database…**
+6. In **Database**, type exactly:
+
+```text
+leave_management_api
 ```
 
-## Services
+7. Click **Save**.
 
-| Service | Port | Responsibility |
-|---------|------|----------------|
-| **gateway** | 8000 | API gateway |
-| **auth-service** | 8001 | Login, JWT, current user |
-| **employee-service** | 8002 | Employees & org |
-| **leave-service** | 8003 | Requests & balances |
-| **approval-service** | 8004 | Approve / reject + audit |
+The name must be `leave_management_api`. A database named `leave_management_db` will stay empty — the app does not use it.
 
-## Quick start (local PostgreSQL)
+### Step 2 — Settings file
 
-1. Create a database named **`leave_management_api`** (Postgres 16+).  
-   Do **not** use `leave_management_db` — the API does not write there.
-2. Copy env and set credentials if needed:
+1. Open PowerShell.
+2. Go to this folder (change the path if yours is different):
+
+```powershell
+cd D:\MVP\leave-management\web-api
+```
+
+3. Copy the example settings:
 
 ```powershell
 copy .env.example .env
 ```
 
-Edit **`.env`** in this folder. The app does **not** read `.env.example` at runtime. After any change, restart `scripts\start-local.bat`.
+4. Open the new file in Notepad:
 
-Default connection:
-
-```
-postgresql+psycopg://postgres:postgres@127.0.0.1:5432/leave_management_api
+```powershell
+notepad .env
 ```
 
-### Where data lives (pgAdmin / DBeaver)
+5. If your Postgres password is **not** `postgres`, change only this line. Replace `YOUR_PASSWORD` with your password:
 
-| What you added in the UI | Tables / views to open |
-|--------------------------|------------------------|
-| Employee (name, email) | `users` + `employees`, or view **`v_employee_directory`** |
-| Leave request | `leave_requests`, or view **`v_leave_request_list`** |
-| Leave balances | `leave_balances` |
+```text
+DATABASE_URL=postgresql+psycopg://postgres:YOUR_PASSWORD@127.0.0.1:5432/leave_management_api
+```
 
-`employees` has codes and FKs only — **full name and email are on `users`**.
+6. Save the file and close Notepad.
 
-Confirm the live connection: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db)
+The app reads **`.env`** only. Editing `.env.example` does nothing.
 
-3. Install, migrate, seed:
+Email is optional. Leave `SMTP_HOST` empty and the app still works. Forgot-password codes are then printed in the black **leave-auth** window (on this computer only). To send real email, see [Email (optional)](#email-optional) later.
+
+On a Mac, use Terminal:
 
 ```bash
+cd /path/to/leave-management/web-api
+cp .env.example .env
+open -e .env
+```
+
+### Step 3 — Install the backend and load sample people
+
+Stay in the `web-api` folder. Paste these lines **one at a time** and wait for each to finish:
+
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+.\.venv\Scripts\alembic.exe upgrade head
+python scripts\seed.py
+```
+
+What each line does:
+
+| Line | What you should see |
+|------|---------------------|
+| `python -m venv .venv` | A new `.venv` folder. No error. |
+| `Activate.ps1` | The start of the line changes to `(.venv)`. |
+| `pip install ...` | A lot of download text, then it returns to the prompt. |
+| `alembic upgrade head` | Lines ending in the latest migration. No “FAILED”. |
+| `python scripts\seed.py` | `Seed completed` and two email addresses. |
+
+If PowerShell says running scripts is disabled, paste this once, press Enter, then run `Activate.ps1` again:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+On a Mac:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 alembic upgrade head
 python scripts/seed.py
 ```
 
-4. Start all services:
+### Sample sign-in accounts
 
-```bash
+These are created by `seed.py`. Password for both is `password123`.
+
+| Who | Email | Password |
+|-----|--------|----------|
+| Employee (Alex Employee) | `employee@example.com` | `password123` |
+| Manager (Morgan Manager) | `harip5340@gmail.com` | `password123` |
+
+There are no leave requests yet. Apply for leave from the website after both parts are running.
+
+---
+
+## Start the backend (every time)
+
+1. Open PowerShell.
+2. Run:
+
+```powershell
+cd D:\MVP\leave-management\web-api
 .\scripts\start-local.bat
 ```
 
-- Gateway docs: http://127.0.0.1:8000/docs
+3. Wait until you see **Backend started**.
+4. Several extra windows open (`leave-auth`, `leave-employee`, `leave-leave`, `leave-approval`, `leave-gateway`). Leave them open. Closing them stops the backend.
 
-## Seed accounts (backend only)
+Check it in a browser: open [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db).  
+You want a short page of text that shows the database is connected.
 
-- `harip5340@gmail.com` / `password123` (Morgan Manager)
-- `employee@example.com` / `password123`
+Optional: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) lists every API action. You do not need this to use the website.
 
-No other demo users. Leave requests start empty; add data through the API/UI.
+Then start the website. See [../web-app/README.md](../web-app/README.md).
 
-## Email notifications (SMTP)
+On a Mac there is no `.bat` file. From `web-api`, with the virtual environment turned on (`source .venv/bin/activate`), run `alembic upgrade head`, then open five Terminal tabs and run one command in each:
 
-- **New request:** when an employee applies, their manager gets an email at their work
-  (login) address with the dates, working days, reason and balance left, plus a link to
-  the approvals queue. Employees without a manager route to every active approver.
-- **Decision:** when a manager approves or rejects, the employee gets an email with the
-  status, dates, days, approver, comment and remaining balance.
+```bash
+export PYTHONPATH=.
+uvicorn services.auth_service.main:app --reload --port 8001 --host 127.0.0.1
+uvicorn services.employee_service.main:app --reload --port 8002 --host 127.0.0.1
+uvicorn services.leave_service.main:app --reload --port 8003 --host 127.0.0.1
+uvicorn services.approval_service.main:app --reload --port 8004 --host 127.0.0.1
+uvicorn gateway.main:app --reload --no-proxy-headers --port 8000 --host 127.0.0.1
+```
 
-Emails are sent in the background after the change is saved, so a mail outage never blocks
-or undoes a request or decision.
+Start the gateway (port 8000) last.
 
-Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` and `MAIL_FROM` in **`.env`**
-(use `.env.example` as a template only). Restart all services after editing. With
-`SMTP_HOST` empty, emails are only logged in the service console (and temp passwords in
-development are logged by the auth service).
+### Stop the backend
 
-**Mailtrap / sandboxes:** messages appear in the provider’s web inbox, not the recipient’s
-real mailbox until you switch to production SMTP.
+Close the five extra windows, or run `.\scripts\start-local.bat` again. Running it again closes anything already using ports 8000–8004 and starts fresh.
 
-## In-app notifications
+---
 
-Stored in the `notifications` table (migration `007_notifications`) and shown in the header
-bell, which polls every 30 seconds:
+## Email (optional)
 
-| Event | Who is notified |
-|-------|-----------------|
-| Leave submitted | The employee's manager |
-| Leave approved / rejected | The employee |
-| Pending leave cancelled | The manager |
+Skip this if you only want to click around the app. In-app alerts (the bell icon) work without email.
 
-Once a request is decided or cancelled, the manager's "requested leave" item is marked read
-automatically. Endpoints: `GET /api/leaves/notifications`, `POST /api/leaves/notifications/{id}/read`,
-`POST /api/leaves/notifications/read-all`. Users can only read or mark their own notifications.
+To send mail for new leave requests, approvals, and forgot-password:
 
-## Forgot password and change password
+1. Open `web-api\.env` in Notepad.
+2. Fill in:
 
-Works the same for employees and managers (migration `008_temp_passwords`).
+| Setting | What to put |
+|---------|-------------|
+| `SMTP_HOST` | Your mail server, for example `smtp.gmail.com` |
+| `SMTP_PORT` | Usually `587` |
+| `SMTP_USERNAME` | The mailbox login |
+| `SMTP_PASSWORD` | The mailbox password or app password |
+| `MAIL_FROM` | The “from” name, for example `LeaveFlow <no-reply@yourdomain.com>` |
 
-1. **Forgot password** (`POST /api/auth/forgot-password`): emails a one-time temporary
-   password (`xxxx-xxxx-xxxx`) to the account's work email. The response is identical for
-   known and unknown emails. Only a bcrypt hash is stored; it works once, expires after
-   `TEMP_PASSWORD_EXPIRE_MINUTES` (30) and at most `TEMP_PASSWORD_MAX_PER_HOUR` (3) are
-   issued per account. The current password keeps working, so nobody can lock a user out by
-   requesting resets; signing in with the real password cancels any outstanding temp password.
-2. **Temp sign-in:** the user is flagged `must_change_password`. Until they set a new
-   password, the web app keeps them on Settings and the API returns
-   `403 Password change required` for everything except `/me`, change-password and
-   notifications.
-3. **Change password** (`POST /api/auth/change-password`, Settings page): requires the
-   current password (skipped after a temp sign-in), 8+ characters with a letter and a number,
-   different from the current one. Wrong current passwords count toward the login throttle.
-   On success every other session is signed out and fresh tokens are returned.
+3. Save the file.
+4. Stop the backend and run `.\scripts\start-local.bat` again. A change to `.env` is picked up only at startup.
 
-Without SMTP configured, temp passwords are printed in the auth service console
-(development only). The old reset-link endpoint (`/reset-password`) was removed.
+What gets sent:
 
-## Scripts
+- An employee applies → their manager gets an email with dates, days, reason, and balance left.
+- A manager approves or rejects → the employee gets an email with the decision.
+- Someone uses **Forgot password** → that account gets a one-time temporary password.
+
+**Mailtrap** and similar test inboxes show the message on the provider’s website. It will not arrive in Gmail until you use a real mailbox (Gmail App Password, Microsoft 365, SendGrid, and so on).
+
+Do not put real passwords in `.env.example`, and do not commit `.env` to git.
+
+---
+
+## If something goes wrong
+
+| What you see | What to do |
+|--------------|------------|
+| `python` is not recognized | Reinstall Python with **Add python.exe to PATH**. Open a new PowerShell window. |
+| `Activate.ps1` cannot be loaded | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then activate again. |
+| Missing venv | You skipped Step 3. From `web-api`, run `python -m venv .venv` and `pip install -r requirements.txt`. |
+| Migration failed / cannot connect | PostgreSQL must be running. In `.env`, the password and database name must match what you created. Database name is `leave_management_api`. |
+| Port already in use | Run `.\scripts\start-local.bat` again. It frees ports 8000–8004 first. |
+| Website says network error | This backend must be started first. Open [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db). |
+| Demo login says invalid password | From `web-api`, with `(.venv)` showing, run `python scripts\seed.py` again. |
+| Changed `.env` and nothing changed | Stop the extra windows and run `start-local.bat` again. |
+| No rows in pgAdmin | Open database **`leave_management_api`**. Names and emails are in `users`. Employee codes are in `employees`. Leave requests are in `leave_requests`. |
+
+---
+
+## For developers
+
+```
+Browser  →  gateway :8000  →  auth :8001
+                            →  employees :8002
+                            →  leaves :8003
+                            →  approvals :8004
+                            →  PostgreSQL (leave_management_api)
+```
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/seed.py` | Demo users, policy, balances |
-| `scripts/reset_db.py` | Drop/recreate schema, migrate, seed |
+| `scripts/start-local.bat` | Migrate, then start gateway and the four services |
+| `scripts/seed.py` | Demo users, leave policy, and balances |
+| `scripts/reset_db.py` | Drop the schema, migrate, and seed again |
 | `scripts/e2e_leaves.py` | Leave workflow smoke test |
-| `scripts/e2e_employees.py` | Employee CRUD smoke test |
-| `scripts/start-local.bat` | Start gateway + 4 services |
-| `scripts/e2e_login_security.py` | Login throttle, JWT, CORS smoke test |
+| `scripts/e2e_employees.py` | Employee create/read/update smoke test |
+| `scripts/e2e_login_security.py` | Login throttle, JWT, and CORS smoke test |
 
-## Frontend
+Default database URL (password `postgres`):
 
-The React UI lives in **`../web-app`**. See **[../web-app/README.md](../web-app/README.md)** and the product walkthrough in **[../README.md](../README.md)**.
-
-## Layout
-
+```text
+postgresql+psycopg://postgres:postgres@127.0.0.1:5432/leave_management_api
 ```
-web-api/
-├── alembic/
-├── gateway/
-├── scripts/
-├── services/
-│   ├── auth_service/
-│   ├── employee_service/
-│   ├── leave_service/
-│   └── approval_service/
-├── shared/
-│   ├── auth/
-│   ├── db/
-│   ├── models/
-│   ├── repositories/
-│   ├── services/
-│   ├── schemas.py
-│   └── config.py
-├── docker-compose.yml
-└── requirements.txt
-```
+
+In-app notifications live in `notifications` and the website bell polls them about every 30 seconds. Users can read only their own: `GET /api/leaves/notifications`, `POST /api/leaves/notifications/{id}/read`, `POST /api/leaves/notifications/read-all`.
+
+Forgot password (`POST /api/auth/forgot-password`) emails a one-time code. It expires after `TEMP_PASSWORD_EXPIRE_MINUTES` (30) and is limited to `TEMP_PASSWORD_MAX_PER_HOUR` (3). The real password still works. After a temporary sign-in, the API returns `403 Password change required` until Settings sets a new password (8+ characters, a letter and a number).
+
+The website is in [../web-app](../web-app). A full walkthrough of both parts is in [../README.md](../README.md).
