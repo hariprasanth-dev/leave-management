@@ -16,7 +16,7 @@ from shared.config import settings
 from shared.routers.auth import router as auth_router
 from shared.schemas import HealthResponse
 
-GATEWAY_VERSION = "0.2.0"
+GATEWAY_VERSION = "0.2.1"
 
 app = FastAPI(
     title="LeaveFlow API Gateway",
@@ -46,6 +46,17 @@ ROUTE_MAP: dict[str, str] = {
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service="gateway")
+
+
+@app.on_event("startup")
+def _log_gateway_version() -> None:
+    import logging
+
+    logging.getLogger("uvicorn.error").info(
+        "LeaveFlow gateway %s — auth at /api/auth/login (DATABASE_URL set: %s)",
+        GATEWAY_VERSION,
+        bool(settings.database_url and "127.0.0.1" not in settings.database_url),
+    )
 
 
 @app.get("/health/version")

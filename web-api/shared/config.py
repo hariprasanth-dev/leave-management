@@ -19,6 +19,7 @@ class Settings(BaseSettings):
             str(_WEB_API_ROOT / ".env"),
             str(_REPO_ROOT / ".env.local"),
         ),
+        env_file_encoding="utf-8",
         extra="ignore",
     )
 
@@ -86,6 +87,11 @@ class Settings(BaseSettings):
             return self
 
         self.database_url = _DEFAULT_LOCAL_URL
+        if self.environment == "production":
+            raise ValueError(
+                "DATABASE_URL is required in production (Render). "
+                "Set Neon pooled connection string in Render Environment."
+            )
         return self
 
 

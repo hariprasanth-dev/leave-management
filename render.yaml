@@ -1,0 +1,19 @@
+# Render — connect this repo with Root Directory = web-api
+services:
+  - type: web
+    name: leave-management-api
+    runtime: docker
+    rootDir: web-api
+    dockerfilePath: ./gateway/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health/version
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://leave-management-six-ruby.vercel.app
+      - key: DATABASE_URL
+        sync: false
