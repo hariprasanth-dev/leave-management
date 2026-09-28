@@ -106,6 +106,24 @@ Browse data in **Supabase → Table Editor** (`users`, `employees`, `leave_reque
 | `scripts/e2e_employees.py` | Employee CRUD smoke test |
 | `scripts/start-local.bat` | Start gateway + 4 services |
 
+## Deploy on Render (with Vercel frontend)
+
+The API is **five processes locally** (gateway + 4 services). A Render web service must run **all of them**, not `gateway/Dockerfile` alone — otherwise `/api/auth/login` returns **502** (`auth service unavailable`).
+
+1. **Root directory:** `web-api`
+2. **Runtime:** Docker
+3. **Dockerfile:** `Dockerfile` (repo root under `web-api`, not `gateway/Dockerfile`)
+4. **Environment variables** (Render dashboard):
+   - `DATABASE_URL` — Supabase URI (`postgresql://…`) or use `DATABASE_HOST` + `DATABASE_PASSWORD` like local `.env`
+   - `SUPABASE_REGION` — e.g. `ap-northeast-1` if using Supabase pooler
+   - `JWT_SECRET` — strong random string
+   - `FRONTEND_URL` — your Vercel URL (e.g. `https://leave-management-six-ruby.vercel.app`)
+5. After deploy, check:
+   - [https://YOUR-SERVICE.onrender.com/health/services](https://YOUR-SERVICE.onrender.com/health/services) — all services should be `"status":"ok"`, not `unreachable`
+   - `/health/db` — should show your Supabase host, not `127.0.0.1`
+
+Optional: use `render.yaml` in this folder as a Render Blueprint template.
+
 ## Layout
 
 ```
