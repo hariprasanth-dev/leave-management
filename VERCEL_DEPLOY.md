@@ -54,6 +54,12 @@ Do **not** set `VITE_API_BASE_URL` — the app calls `/api/...` on the same doma
 
 Push to `main` or redeploy in Vercel dashboard.
 
+### Build fails with `externally-managed-environment` / `pip install`
+
+Do **not** run `pip install` in Vercel **Install Command**. Leave it as **`npm install`** only (see `web-app/vercel.json`). Vercel installs Python deps from **`web-app/api/requirements.txt`** automatically when it builds `api/index.py`.
+
+In the dashboard: **Settings → Build & Development → Install Command** → override **Off**, or set to `npm install` only.
+
 ## 4. Verify
 
 - `https://YOUR-APP.vercel.app/health/version` → `"gateway_version":"0.3.0"`

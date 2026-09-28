@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "node web-app/scripts/sync-server-from-web-api.mjs && cd web-app && npm run build",
   "outputDirectory": "web-app/dist",
-  "installCommand": "pip install -r api/requirements.txt && cd web-app && npm install",
+  "installCommand": "cd web-app && npm install",
   "functions": {
     "api/index.py": {
       "memory": 1024,
