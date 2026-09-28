@@ -18,6 +18,9 @@ function loginErrorMessage(err) {
   if (!err?.response) return 'Unable to reach the server. Check your connection and try again.'
   if (status === 429) return err.response.data?.detail || 'Too many attempts. Please wait and try again.'
   if (status === 401 || status === 422) return 'Invalid email or password.'
+  if (status === 405) {
+    return 'API routing error (405). On Vercel, set Root Directory to the repository root (.), not web-app, then redeploy. See VERCEL_DEPLOY.md.'
+  }
   if (status === 500 || status === 502) {
     return 'The API is not ready. Stop and re-run web-api\\scripts\\start-local.bat (it applies DB migrations), then try again.'
   }

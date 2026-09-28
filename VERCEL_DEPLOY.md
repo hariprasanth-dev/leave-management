@@ -9,6 +9,14 @@ Render is optional. This setup runs the FastAPI gateway on **Vercel serverless**
 | **Root Directory** | `.` (repository root, **not** `web-app`) |
 | **Framework** | Other (uses root `vercel.json`) |
 
+### Login returns **405 Method Not Allowed**?
+
+The Network tab shows `POST /api/auth/login` with response `index.html` — the SPA rewrite is handling `/api` instead of the Python gateway.
+
+**Fix:** Vercel → **Settings → General → Root Directory** → clear the field or set to **`.`** (repo root), **not** `web-app`. Redeploy. Then open `/health/version` (must return JSON, not the login page).
+
+If Root Directory must stay `web-app`, set **`VITE_API_BASE_URL`** to your API host (e.g. Render) and redeploy; do **not** use empty same-origin `/api` in that mode.
+
 ## 2. Environment variables (Production)
 
 Copy from Neon (repo `.env.local`):
