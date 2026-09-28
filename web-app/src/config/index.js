@@ -6,6 +6,8 @@
  *   VITE_API_BASE_URL=http://127.0.0.1:8000
  *   VITE_API_KEY=          (optional; leave empty when using JWT only)
  *   VITE_USE_PROXY=true    (empty base URL → same-origin / Vite proxy)
+ *
+ * All list/detail data comes from the backend API — no frontend mock datasets.
  */
 
 const ENVIRONMENTS = {
@@ -13,19 +15,16 @@ const ENVIRONMENTS = {
     apiBaseUrl: 'http://127.0.0.1:8000',
     apiKey: '',
     enableDebug: true,
-    enableMockData: false,
   },
   staging: {
     apiBaseUrl: 'https://staging-api.example.com',
     apiKey: '',
     enableDebug: true,
-    enableMockData: false,
   },
   production: {
     apiBaseUrl: '',
     apiKey: '',
     enableDebug: false,
-    enableMockData: false,
   },
 }
 
@@ -63,14 +62,11 @@ const config = {
    */
   apiKey,
 
-  /** Feature / behaviour switchers */
+  /** Feature switchers — UI data always comes from the API. */
   switchers: {
     enableDebug:
       String(import.meta.env.VITE_ENABLE_DEBUG || '').toLowerCase() === 'true' ||
       defaults.enableDebug,
-    enableMockData:
-      String(import.meta.env.VITE_ENABLE_MOCK || '').toLowerCase() === 'true' ||
-      defaults.enableMockData,
     useProxy,
   },
 

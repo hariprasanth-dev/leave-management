@@ -46,7 +46,7 @@ class TokenResponse(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=1)
+    password: str = Field(min_length=1, max_length=128)
 
 
 class RefreshRequest(BaseModel):
@@ -61,14 +61,23 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
-class ResetPasswordRequest(BaseModel):
-    token: str = Field(min_length=1)
+class ChangePasswordRequest(BaseModel):
+    # Not required right after signing in with a temporary password.
+    current_password: Optional[str] = Field(default=None, max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_strength(self):
+        pw = self.new_password
+        if pw != pw.strip():
+            raise ValueError("Password can't start or end with a space")
+        if not any(c.isalpha() for c in pw) or not any(c.isdigit() for c in pw):
+            raise ValueError("Password must include at least one letter and one number")
+        return self
 
 
 class MessageResponse(BaseModel):
     message: str
-    reset_token: Optional[str] = None
 
 
 class UserPublic(BaseModel):
@@ -79,6 +88,7 @@ class UserPublic(BaseModel):
     roles: list[str] = []
     permissions: list[str] = []
     employee_id: Optional[str] = None
+    must_change_password: bool = False
 
 
 class DepartmentInfo(BaseModel):
@@ -106,7 +116,6 @@ class EmployeeCreate(BaseModel):
     full_name: str = Field(min_length=2, max_length=150)
     password: str = Field(min_length=8, max_length=128)
     department_id: str
-    employee_code: str = Field(min_length=2, max_length=30)
     manager_id: Optional[str] = None
     hire_date: Optional[date] = None
     role: Role = Role.employee
@@ -132,6 +141,7 @@ class EmployeeListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+    status_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class LeaveBalance(BaseModel):
@@ -174,8 +184,16 @@ class LeaveRequest(BaseModel):
     days: float
     reason: str
     status: LeaveStatus
+    self_recorded: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+
+class LeavePolicy(BaseModel):
+    """How the current user's leave is handled: routed for approval or recorded directly."""
+
+    requires_approval: bool
+    approver_name: Optional[str] = None
 
 
 class LeaveListResponse(BaseModel):
@@ -183,6 +201,78 @@ class LeaveListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class NotificationItem(BaseModel):
+    id: str
+    kind: str
+    title: str
+    body: str = ""
+    link: Optional[str] = None
+    is_read: bool = False
+    created_at: datetime
+
+
+class NotificationListResponse(BaseModel):
+    items: list[NotificationItem]
+    unread_count: int
+
+
+class LeaveStatsBucket(BaseModel):
+    """Working days on leave that fall inside one month or on one weekday."""
+
+    key: int
+    label: str
+    approved: float = 0
+    pending: float = 0
+
+
+class LeaveStatsByType(BaseModel):
+    leave_type: LeaveType
+    name: str
+    entitled: float
+    approved: float = 0
+    pending: float = 0
+    remaining: float = 0
+
+
+class LeaveStats(BaseModel):
+    year: int
+    available_years: list[int]
+    approved_days: float
+    pending_days: float
+    request_counts: dict[str, int]
+    by_type: list[LeaveStatsByType]
+    monthly: list[LeaveStatsBucket]
+    weekday: list[LeaveStatsBucket]
+
+
+class TeamMemberSummary(BaseModel):
+    employee_id: str
+    full_name: str
+    employee_code: Optional[str] = None
+    email: str
+    department: str
+    on_leave_until: Optional[date] = None
+    next_leave_start: Optional[date] = None
+    entitled_days: float = 0
+    taken_days: float = 0
+    pending_days: float = 0
+    available_days: float = 0
+
+
+class TeamOverview(BaseModel):
+    scope: str
+    year: int
+    team_size: int
+    pending_count: int
+    pending: list[LeaveRequest]
+    on_leave_today: list[LeaveRequest]
+    upcoming: list[LeaveRequest]
+    members: list[TeamMemberSummary]
+    monthly: list[LeaveStatsBucket]
+    by_type: list[LeaveStatsByType]
+    approved_days_this_month: float
 
 
 class ApprovalAction(BaseModel):

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { approvalApi, authApi } from '../api/client'
-import { PageSkeleton } from '../components/Skeleton'
+import { ListSkeleton } from '../components/Skeleton'
 import './pages.css'
 
 export function Approvals() {
@@ -13,6 +13,7 @@ export function Approvals() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [actingId, setActingId] = useState(null)
+  const [notice, setNotice] = useState(null)
 
   async function load() {
     setLoading(true)
@@ -37,12 +38,16 @@ export function Approvals() {
     void load()
   }, [tab, page])
 
-  async function decide(id, action) {
+  async function decide(leave, action) {
+    const { id } = leave
     setActingId(id)
     try {
       if (action === 'approve') await approvalApi.approve(id)
       else await approvalApi.reject(id)
       setPending((prev) => prev.filter((l) => l.id !== id))
+      setNotice(
+        `${action === 'approve' ? 'Approved' : 'Rejected'} ${leave.employee_name ? `${leave.employee_name}'s` : 'the'} request. They've been notified by email.`,
+      )
     } catch (err) {
       setError(authApi.errorMessage(err, `Failed to ${action}`))
     } finally {
@@ -84,7 +89,15 @@ export function Approvals() {
         </button>
       </div>
 
-      {loading && <PageSkeleton />}
+      {notice && (
+        <p className="banner success">
+          {notice}
+          <button type="button" className="btn ghost" onClick={() => setNotice(null)}>
+            Dismiss
+          </button>
+        </p>
+      )}
+      {loading && <ListSkeleton rows={3} actions={tab === 'pending' ? 2 : 0} />}
       {error && <p className="banner error">{error}</p>}
 
       {!loading && rows.length === 0 && !error && (
@@ -119,7 +132,7 @@ export function Approvals() {
                       type="button"
                       className="btn primary"
                       disabled={actingId === leave.id}
-                      onClick={() => void decide(leave.id, 'approve')}
+                      onClick={() => void decide(leave, 'approve')}
                     >
                       Approve
                     </button>
@@ -127,7 +140,7 @@ export function Approvals() {
                       type="button"
                       className="btn ghost"
                       disabled={actingId === leave.id}
-                      onClick={() => void decide(leave.id, 'reject')}
+                      onClick={() => void decide(leave, 'reject')}
                     >
                       Reject
                     </button>

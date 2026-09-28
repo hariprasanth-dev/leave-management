@@ -18,12 +18,12 @@ from shared.config import settings
 from shared.routers.auth import router as auth_router
 from shared.schemas import HealthResponse
 
-GATEWAY_VERSION = "0.2.2"
+GATEWAY_VERSION = "0.3.0"
 
 app = FastAPI(
     title="LeaveFlow API Gateway",
     version=GATEWAY_VERSION,
-    description="Gateway with built-in /api/auth/* routes plus proxies for other services.",
+    description="Gateway with built-in /api/auth/* routes plus proxies or inline domain services.",
 )
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
@@ -31,18 +31,20 @@ mount_inline_services(app)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
+    expose_headers=["Retry-After", "X-Gateway-Version"],
 )
 
-
-@app.middleware("http")
-async def add_gateway_version_header(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["X-Gateway-Version"] = GATEWAY_VERSION
-    return response
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+}
 
 PROXY_SERVICES = ("employees", "leaves", "approvals")
 
@@ -51,6 +53,18 @@ ROUTE_MAP: dict[str, str] = {
     "leaves": settings.leave_service_url,
     "approvals": settings.approval_service_url,
 }
+
+
+@app.middleware("http")
+async def gateway_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Gateway-Version"] = GATEWAY_VERSION
+    for key, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(key, value)
+    if request.url.path.startswith("/api/auth"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -71,7 +85,6 @@ def _log_gateway_version() -> None:
 
 @app.get("/health/version")
 def health_version() -> dict[str, str]:
-    """Use after deploy: must show 0.2.0+ and openapi must list /api/auth/login."""
     return {
         "gateway_version": GATEWAY_VERSION,
         "auth": "built-in",
@@ -156,7 +169,9 @@ if os.getenv("INLINE_SERVICES") != "1":
     ) -> Response:
         base_url = ROUTE_MAP[service]
         upstream = f"{base_url}{_upstream_path(service, path)}"
-        headers = {k: v for k, v in request.headers.items() if k.lower() not in {"host", "content-length"}}
+        stripped = {"host", "content-length", "x-forwarded-for", "x-real-ip", "forwarded"}
+        headers = {k: v for k, v in request.headers.items() if k.lower() not in stripped}
+        headers["X-Forwarded-For"] = request.client.host if request.client else "unknown"
         body = await request.body()
 
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -185,4 +200,5 @@ if os.getenv("INLINE_SERVICES") != "1":
 
 @app.exception_handler(Exception)
 async def unhandled_exception(_: Request, exc: Exception) -> JSONResponse:
-    return JSONResponse(status_code=500, content={"detail": str(exc)})
+    print(f"[gateway] unhandled error: {exc!r}")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})

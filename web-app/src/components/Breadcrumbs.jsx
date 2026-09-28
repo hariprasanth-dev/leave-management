@@ -3,10 +3,16 @@ import { Link, useLocation } from 'react-router-dom'
 import { CRUMB_MAP } from '../navigation'
 import './Breadcrumbs.css'
 
-export function Breadcrumbs() {
+export function Breadcrumbs({ overrideLabel }) {
   const { pathname } = useLocation()
 
-    const crumbs = useMemo(() => {
+  const crumbs = useMemo(() => {
+    if (overrideLabel) {
+      return [
+        { to: '/', label: 'Home' },
+        { to: pathname, label: overrideLabel },
+      ]
+    }
     if (pathname === '/') {
       return [{ to: '/', label: 'Dashboard' }]
     }
@@ -19,7 +25,7 @@ export function Breadcrumbs() {
       if (parts[0] === 'leaves' && parts.length === 2 && part === parts[1]) {
         label = 'Request detail'
       }
-      if (parts[0] === 'employees' && parts.length === 2 && part === parts[1] && part !== 'new') {
+      if (parts[0] === 'employees' && parts.length >= 2 && part === parts[1] && part !== 'new') {
         label = 'Employee'
       }
       if (parts[0] === 'employees' && parts.length === 3 && part === 'edit') {
@@ -28,7 +34,7 @@ export function Breadcrumbs() {
       items.push({ to: path, label })
     }
     return items
-  }, [pathname])
+  }, [pathname, overrideLabel])
 
   return (
     <nav className="breadcrumbs" aria-label="Breadcrumb">

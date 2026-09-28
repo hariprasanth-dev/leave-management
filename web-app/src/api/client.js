@@ -118,8 +118,10 @@ export const authApi = {
     api.post('/api/auth/refresh', { refresh_token }).then((r) => r.data),
   forgotPassword: (email) =>
     api.post('/api/auth/forgot-password', { email }).then((r) => r.data),
-  resetPassword: (token, new_password) =>
-    api.post('/api/auth/reset-password', { token, new_password }).then((r) => r.data),
+  changePassword: (current_password, new_password) =>
+    api
+      .post('/api/auth/change-password', { current_password: current_password || null, new_password })
+      .then((r) => r.data),
   errorMessage: apiErrorMessage,
 }
 
@@ -141,6 +143,25 @@ export const leaveApi = {
     const params = employeeId ? { employee_id: employeeId } : {}
     return api.get('/api/leaves/balances', { params }).then((r) => r.data)
   },
+  teamOverview: () => api.get('/api/leaves/team-overview').then((r) => r.data),
+  policy: () => api.get('/api/leaves/policy').then((r) => r.data),
+  workingDays: (startDate, endDate) =>
+    api
+      .get('/api/leaves/working-days', { params: { start_date: startDate, end_date: endDate } })
+      .then((r) => r.data),
+  stats: (opts = {}) => {
+    const params = {}
+    if (opts.year) params.year = opts.year
+    if (opts.employeeId) params.employee_id = opts.employeeId
+    return api.get('/api/leaves/stats', { params }).then((r) => r.data)
+  },
+}
+
+export const notificationApi = {
+  list: (limit = 20) =>
+    api.get('/api/leaves/notifications', { params: { limit } }).then((r) => r.data),
+  markRead: (id) => api.post(`/api/leaves/notifications/${id}/read`).then((r) => r.data),
+  markAllRead: () => api.post('/api/leaves/notifications/read-all').then((r) => r.data),
 }
 
 export const approvalApi = {
@@ -165,11 +186,16 @@ export const employeeApi = {
     if (opts.departmentId) params.department_id = opts.departmentId
     if (opts.isActive !== undefined && opts.isActive !== null) params.is_active = opts.isActive
     if (opts.q) params.q = opts.q
+    if (opts.role) params.role = opts.role
+    if (opts.sort) params.sort = opts.sort
+    if (opts.order) params.order = opts.order
     if (opts.page) params.page = opts.page
     if (opts.pageSize) params.page_size = opts.pageSize
     if (opts.scope) params.scope = opts.scope
     return api.get('/api/employees', { params }).then((r) => r.data)
   },
+  me: () => api.get('/api/employees/me').then((r) => r.data),
+  nextCode: () => api.get('/api/employees/next-code').then((r) => r.data.employee_code),
   get: (id) => api.get(`/api/employees/${id}`).then((r) => r.data),
   create: (payload) => api.post('/api/employees', payload).then((r) => r.data),
   update: (id, payload) => api.patch(`/api/employees/${id}`, payload).then((r) => r.data),

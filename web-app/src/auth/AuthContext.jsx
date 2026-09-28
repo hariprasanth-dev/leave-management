@@ -57,11 +57,30 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const tokens = await authApi.login(email, password)
+    if (!tokens?.access_token) {
+      throw new Error('Sign-in failed')
+    }
     setTokens(tokens)
-    const me = await authApi.me()
-    setUser(me)
-    return me
+    try {
+      const me = await authApi.me()
+      if (!me?.id) throw new Error('Sign-in failed')
+      setUser(me)
+      return me
+    } catch (err) {
+      clearTokens()
+      setUser(null)
+      throw err
+    }
   }, [])
+
+  const changePassword = useCallback(
+    async (currentPassword, newPassword) => {
+      const tokens = await authApi.changePassword(currentPassword, newPassword)
+      setTokens(tokens)
+      return loadUser()
+    },
+    [loadUser],
+  )
 
   const logout = useCallback(async () => {
     const refresh_token = getRefreshToken()
@@ -82,11 +101,12 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(user),
       login,
       logout,
+      changePassword,
       reloadUser: loadUser,
       can: (permission) => hasPermission(user, permission),
       isRole: (...roles) => hasRole(user, ...roles),
     }),
-    [user, bootstrapping, login, logout, loadUser],
+    [user, bootstrapping, login, logout, changePassword, loadUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

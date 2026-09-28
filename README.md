@@ -116,7 +116,7 @@ cd D:\MVP\leave-management\web-api
 .\scripts\start-local.bat
 ```
 
-Wait until you see **“Backend started”**. Several small black windows may open (auth, employees, leaves, approvals, gateway). That is normal.
+Wait until you see **“Backend started”**. `start-local.bat` runs **`alembic upgrade head`** first so new tables (e.g. `login_attempts`) exist before login. Several small black windows may open (auth, employees, leaves, approvals, gateway). That is normal.
 
 Quick check in the browser: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db)  
 You want a JSON response that shows the database is connected.

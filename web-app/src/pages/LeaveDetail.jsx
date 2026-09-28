@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { authApi, leaveApi } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { PageSkeleton } from '../components/Skeleton'
+import { DetailSkeleton } from '../components/Skeleton'
+import { canCancelLeave, leaveStatusLabel } from './dashboardUtils'
 import './pages.css'
 
 export function LeaveDetail() {
@@ -52,7 +53,7 @@ export function LeaveDetail() {
     }
   }
 
-  if (loading) return <PageSkeleton />
+  if (loading) return <DetailSkeleton fields={8} />
 
   if (error && !leave) {
     return (
@@ -84,7 +85,10 @@ export function LeaveDetail() {
           <div>
             <dt>Status</dt>
             <dd>
-              <span className={`badge ${leave.status}`}>{leave.status}</span>
+              <span className={`badge ${leave.status}`}>{leaveStatusLabel(leave)}</span>
+              {leave.self_recorded && (
+                <span className="muted detail-note">No approval needed</span>
+              )}
             </dd>
           </div>
           <div>
@@ -111,7 +115,7 @@ export function LeaveDetail() {
           </div>
         </dl>
 
-        {isOwner && leave.status === 'pending' && (
+        {isOwner && canCancelLeave(leave) && (
           <div className="modal-actions" style={{ marginTop: '1.25rem' }}>
             {!confirmCancel ? (
               <button type="button" className="btn ghost" onClick={() => setConfirmCancel(true)}>
@@ -119,7 +123,11 @@ export function LeaveDetail() {
               </button>
             ) : (
               <>
-                <p className="muted">Confirm cancellation? Balance will not be reduced.</p>
+                <p className="muted">
+                  {leave.status === 'approved'
+                    ? 'Confirm cancellation? The days go back to your balance.'
+                    : 'Confirm cancellation? Balance will not be reduced.'}
+                </p>
                 <button type="button" className="btn ghost" onClick={() => setConfirmCancel(false)}>
                   Keep
                 </button>

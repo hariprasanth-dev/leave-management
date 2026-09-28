@@ -1,6 +1,10 @@
-# LeaveFlow API
+# LeaveFlow API (`web-api`)
 
-Python FastAPI microservices for the LeaveFlow leave management platform.
+Python FastAPI microservices for LeaveFlow (database, auth, employees, leaves, approvals).
+
+**First time running the full app?** Start with the non-technical setup in the repo root: **[../README.md](../README.md)** — install PostgreSQL, copy **`.env`** (not `.env.example`), migrate, seed, then `scripts\start-local.bat` and `web-app` → `npm run dev`.
+
+---
 
 ## Architecture
 
@@ -32,9 +36,11 @@ PostgreSQL
    Do **not** use `leave_management_db` — the API does not write there.
 2. Copy env and set credentials if needed:
 
-```bash
+```powershell
 copy .env.example .env
 ```
+
+Edit **`.env`** in this folder. The app does **not** read `.env.example` at runtime. After any change, restart `scripts\start-local.bat`.
 
 Default connection:
 
@@ -72,42 +78,68 @@ python scripts/seed.py
 
 - Gateway docs: http://127.0.0.1:8000/docs
 
-## Quick start (Neon cloud PostgreSQL)
+## Seed accounts (backend only)
 
-Neon is PostgreSQL. Link the project from the **repo root** (creates gitignored `.env.local` with `DATABASE_URL`). The Python API reads `.env.local` automatically.
-
-```powershell
-cd D:\MVP\leave-management
-npm i -g neon@latest
-neon login
-neon link --project-id solitary-art-85510321 --branch production -y
-neon config init
-# edit neon.ts, then:
-neon deploy
-
-cd web-api
-.\scripts\setup_neon.ps1
-.\scripts\start-local.bat
-```
-
-Or migrate manually:
-
-```powershell
-cd D:\MVP\leave-management\web-api
-$env:PYTHONPATH = (Get-Location).Path
-.\.venv\Scripts\alembic.exe upgrade head
-python scripts\seed.py
-python scripts\verify_db.py
-```
-
-Confirm: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db) (host should include `neon.tech`).
-
-**Render:** set `DATABASE_URL` to the Neon **pooled** connection string (same as `.env.local`).
-
-## Demo credentials
-
+- `harip5340@gmail.com` / `password123` (Morgan Manager)
 - `employee@example.com` / `password123`
-- `manager@example.com` / `password123`
+
+No other demo users. Leave requests start empty; add data through the API/UI.
+
+## Email notifications (SMTP)
+
+- **New request:** when an employee applies, their manager gets an email at their work
+  (login) address with the dates, working days, reason and balance left, plus a link to
+  the approvals queue. Employees without a manager route to every active approver.
+- **Decision:** when a manager approves or rejects, the employee gets an email with the
+  status, dates, days, approver, comment and remaining balance.
+
+Emails are sent in the background after the change is saved, so a mail outage never blocks
+or undoes a request or decision.
+
+Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` and `MAIL_FROM` in **`.env`**
+(use `.env.example` as a template only). Restart all services after editing. With
+`SMTP_HOST` empty, emails are only logged in the service console (and temp passwords in
+development are logged by the auth service).
+
+**Mailtrap / sandboxes:** messages appear in the provider’s web inbox, not the recipient’s
+real mailbox until you switch to production SMTP.
+
+## In-app notifications
+
+Stored in the `notifications` table (migration `007_notifications`) and shown in the header
+bell, which polls every 30 seconds:
+
+| Event | Who is notified |
+|-------|-----------------|
+| Leave submitted | The employee's manager |
+| Leave approved / rejected | The employee |
+| Pending leave cancelled | The manager |
+
+Once a request is decided or cancelled, the manager's "requested leave" item is marked read
+automatically. Endpoints: `GET /api/leaves/notifications`, `POST /api/leaves/notifications/{id}/read`,
+`POST /api/leaves/notifications/read-all`. Users can only read or mark their own notifications.
+
+## Forgot password and change password
+
+Works the same for employees and managers (migration `008_temp_passwords`).
+
+1. **Forgot password** (`POST /api/auth/forgot-password`): emails a one-time temporary
+   password (`xxxx-xxxx-xxxx`) to the account's work email. The response is identical for
+   known and unknown emails. Only a bcrypt hash is stored; it works once, expires after
+   `TEMP_PASSWORD_EXPIRE_MINUTES` (30) and at most `TEMP_PASSWORD_MAX_PER_HOUR` (3) are
+   issued per account. The current password keeps working, so nobody can lock a user out by
+   requesting resets; signing in with the real password cancels any outstanding temp password.
+2. **Temp sign-in:** the user is flagged `must_change_password`. Until they set a new
+   password, the web app keeps them on Settings and the API returns
+   `403 Password change required` for everything except `/me`, change-password and
+   notifications.
+3. **Change password** (`POST /api/auth/change-password`, Settings page): requires the
+   current password (skipped after a temp sign-in), 8+ characters with a letter and a number,
+   different from the current one. Wrong current passwords count toward the login throttle.
+   On success every other session is signed out and fresh tokens are returned.
+
+Without SMTP configured, temp passwords are printed in the auth service console
+(development only). The old reset-link endpoint (`/reset-password`) was removed.
 
 ## Scripts
 
@@ -117,30 +149,12 @@ Confirm: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db) (hos
 | `scripts/reset_db.py` | Drop/recreate schema, migrate, seed |
 | `scripts/e2e_leaves.py` | Leave workflow smoke test |
 | `scripts/e2e_employees.py` | Employee CRUD smoke test |
-| `scripts/sync_local_to_neon.ps1` | Copy pgAdmin/local DB rows into Neon |
-| `scripts/sync_local_to_neon.py` | Same (use `--dry-run` first) |
-| `scripts/setup_neon.ps1` | Alembic + seed on Neon (empty DB) |
-| `scripts/verify_db.py` | Test DB connection and tables |
 | `scripts/start-local.bat` | Start gateway + 4 services |
+| `scripts/e2e_login_security.py` | Login throttle, JWT, CORS smoke test |
 
-## Deploy on Render (with Vercel frontend)
+## Frontend
 
-The API is **five processes locally** (gateway + 4 services). A Render web service must run **all of them**, not `gateway/Dockerfile` alone — otherwise `/api/auth/login` returns **502** (`auth service unavailable`).
-
-1. **Root directory:** `web-api`
-2. **Runtime:** Docker
-3. **Dockerfile:** `Dockerfile` (repo root under `web-api`, not `gateway/Dockerfile`)
-4. **Environment variables** (Render dashboard):
-   - `DATABASE_URL` — Neon pooled URI (`postgresql://…neon.tech/…`)
-   - `JWT_SECRET` — strong random string
-   - `FRONTEND_URL` — your Vercel URL (e.g. `https://leave-management-six-ruby.vercel.app`)
-5. After deploy, check:
-   - [https://YOUR-SERVICE.onrender.com/health/version](https://YOUR-SERVICE.onrender.com/health/version) — must show **`gateway_version`: `0.2.0`** and **`auth`: `built-in`**. If you still see only `/health` in Swagger with no **`POST /api/auth/login`**, Render is serving an **old build** — use **Manual Deploy → Clear build cache & deploy**.
-   - [https://YOUR-SERVICE.onrender.com/openapi.json](https://YOUR-SERVICE.onrender.com/openapi.json) — must include **`/api/auth/login`**
-   - [https://YOUR-SERVICE.onrender.com/health/services](https://YOUR-SERVICE.onrender.com/health/services) — `auth` should be on the gateway; other services may be `unreachable` until you use the full `Dockerfile` + `start-production.sh`
-   - `/health/db` — should show a **Neon** host (`neon.tech`), not `127.0.0.1`. Use the same `DATABASE_URL` as repo `.env.local`.
-
-Optional: use `render.yaml` in this folder as a Render Blueprint template.
+The React UI lives in **`../web-app`**. See **[../web-app/README.md](../web-app/README.md)** and the product walkthrough in **[../README.md](../README.md)**.
 
 ## Layout
 

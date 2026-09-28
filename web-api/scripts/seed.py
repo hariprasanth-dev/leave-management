@@ -1,4 +1,4 @@
-"""Seed reference + demo data for LeaveFlow."""
+"""Seed reference data: roles/permissions/policy + one manager + one employee."""
 
 from __future__ import annotations
 
@@ -27,22 +27,19 @@ from shared.models import (
     UserRole,
 )
 
-# Stable IDs so local demos and docs stay consistent
+# Stable IDs so local docs stay consistent
 ROLE_EMPLOYEE = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1")
 ROLE_MANAGER = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2")
 ROLE_HR = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3")
 ROLE_ADMIN = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4")
 
-USER_ALEX = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1")
-USER_MORGAN = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2")
-USER_JAMIE = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb3")
+USER_EMPLOYEE = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1")
+USER_MANAGER = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2")
 
 DEPT_ENG = UUID("cccccccc-cccc-cccc-cccc-ccccccccccc1")
-DEPT_DESIGN = UUID("cccccccc-cccc-cccc-cccc-ccccccccccc2")
 
-EMP_ALEX = UUID("dddddddd-dddd-dddd-dddd-ddddddddddd1")
-EMP_MORGAN = UUID("dddddddd-dddd-dddd-dddd-ddddddddddd2")
-EMP_JAMIE = UUID("dddddddd-dddd-dddd-dddd-ddddddddddd3")
+EMP_EMPLOYEE = UUID("dddddddd-dddd-dddd-dddd-ddddddddddd1")
+EMP_MANAGER = UUID("dddddddd-dddd-dddd-dddd-ddddddddddd2")
 
 YEAR = date.today().year
 
@@ -104,67 +101,48 @@ def seed() -> None:
         )
 
         password = _hash("password123")
-        users = [
-            User(
-                id=USER_ALEX,
-                email="employee@example.com",
-                password_hash=password,
-                full_name="Alex Employee",
-            ),
-            User(
-                id=USER_MORGAN,
-                email="manager@example.com",
-                password_hash=password,
-                full_name="Morgan Manager",
-            ),
-            User(
-                id=USER_JAMIE,
-                email="jamie@example.com",
-                password_hash=password,
-                full_name="Jamie Designer",
-            ),
-        ]
-        db.add_all(users)
         db.add_all(
             [
-                UserRole(user_id=USER_ALEX, role_id=ROLE_EMPLOYEE),
-                UserRole(user_id=USER_MORGAN, role_id=ROLE_MANAGER),
-                UserRole(user_id=USER_JAMIE, role_id=ROLE_EMPLOYEE),
+                User(
+                    id=USER_EMPLOYEE,
+                    email="employee@example.com",
+                    password_hash=password,
+                    full_name="Alex Employee",
+                ),
+                User(
+                    id=USER_MANAGER,
+                    email="harip5340@gmail.com",
+                    password_hash=password,
+                    full_name="Morgan Manager",
+                ),
+            ]
+        )
+        db.add_all(
+            [
+                UserRole(user_id=USER_EMPLOYEE, role_id=ROLE_EMPLOYEE),
+                UserRole(user_id=USER_MANAGER, role_id=ROLE_MANAGER),
             ]
         )
 
-        db.add_all(
-            [
-                Department(id=DEPT_ENG, name="Engineering", code="ENG"),
-                Department(id=DEPT_DESIGN, name="Design", code="DSN"),
-            ]
-        )
+        db.add(Department(id=DEPT_ENG, name="Engineering", code="ENG"))
 
         db.add_all(
             [
                 Employee(
-                    id=EMP_MORGAN,
-                    user_id=USER_MORGAN,
+                    id=EMP_MANAGER,
+                    user_id=USER_MANAGER,
                     department_id=DEPT_ENG,
                     manager_id=None,
-                    employee_code="EMP002",
+                    employee_code="ST-02",
                     hire_date=date(2020, 1, 15),
                 ),
                 Employee(
-                    id=EMP_ALEX,
-                    user_id=USER_ALEX,
+                    id=EMP_EMPLOYEE,
+                    user_id=USER_EMPLOYEE,
                     department_id=DEPT_ENG,
-                    manager_id=EMP_MORGAN,
-                    employee_code="EMP001",
+                    manager_id=EMP_MANAGER,
+                    employee_code="ST-01",
                     hire_date=date(2022, 6, 1),
-                ),
-                Employee(
-                    id=EMP_JAMIE,
-                    user_id=USER_JAMIE,
-                    department_id=DEPT_DESIGN,
-                    manager_id=EMP_MORGAN,
-                    employee_code="EMP003",
-                    hire_date=date(2023, 3, 10),
                 ),
             ]
         )
@@ -186,7 +164,7 @@ def seed() -> None:
         db.add_all(leave_types)
         db.flush()
 
-        for emp_id in (EMP_ALEX, EMP_MORGAN, EMP_JAMIE):
+        for emp_id in (EMP_EMPLOYEE, EMP_MANAGER):
             for lt in leave_types:
                 db.add(
                     LeaveBalance(
@@ -200,11 +178,9 @@ def seed() -> None:
                 )
 
         db.commit()
-        print("Seed completed successfully.")
-        print(f"  Employee Alex id: {EMP_ALEX}")
-        print(f"  Manager Morgan id: {EMP_MORGAN}")
-        print("  Policy: Earned 12 + Sick 10 = 22 days")
-        print("  Login: employee@example.com / password123")
+        print("Seed completed: 1 manager + 1 employee (no leave requests).")
+        print("  harip5340@gmail.com / password123")
+        print("  employee@example.com / password123")
     except Exception:
         db.rollback()
         raise
@@ -213,7 +189,7 @@ def seed() -> None:
 
 
 def ensure_manager_permissions() -> None:
-    """Idempotent: grant employee:manage to manager (needed for Module 2 demos)."""
+    """Idempotent: grant employee:manage to manager."""
     db = SessionLocal()
     try:
         manager = db.scalars(select(Role).where(Role.name == "manager")).first()

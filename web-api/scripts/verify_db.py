@@ -25,6 +25,8 @@ EXPECTED_TABLES = frozenset(
         "leave_balances",
         "leave_requests",
         "leave_types",
+        "login_attempts",
+        "notifications",
         "password_reset_tokens",
         "permissions",
         "refresh_tokens",

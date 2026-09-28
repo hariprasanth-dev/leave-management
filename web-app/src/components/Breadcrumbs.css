@@ -1,5 +1,6 @@
 .breadcrumbs {
-  margin: 0 0 1rem;
+  margin: 0;
+  min-width: 0;
 }
 
 .breadcrumbs ol {
@@ -7,11 +8,30 @@
   margin: 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: #64748b;
+  min-width: 0;
+}
+
+.breadcrumbs li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.breadcrumbs li:last-child {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.breadcrumbs li:last-child [aria-current='page'] {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .breadcrumbs a {

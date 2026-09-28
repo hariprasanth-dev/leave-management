@@ -4,27 +4,39 @@ import { useAuth } from '../auth/AuthContext'
 import { Breadcrumbs } from './Breadcrumbs'
 import { Notifications } from './Notifications'
 import { ProfileMenu } from './ProfileMenu'
-import { PageSkeleton } from './Skeleton'
+import { RouteSkeleton } from './Skeleton'
 import { Sidebar } from './Sidebar'
 import './Layout.css'
 
-export function Layout() {
-  const { can, bootstrapping } = useAuth()
+const MOBILE_QUERY = '(max-width: 900px)'
+
+export function Layout({ children, crumbLabel, fill = false }) {
+  const { user, can, bootstrapping } = useAuth()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches)
 
   useEffect(() => {
     setMobileOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
-    function onResize() {
-      if (window.innerWidth > 900) setMobileOpen(false)
+    const media = window.matchMedia(MOBILE_QUERY)
+    function onChange(event) {
+      setIsMobile(event.matches)
+      if (!event.matches) setMobileOpen(false)
     }
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
   }, [])
+
+  const compact = isMobile ? !mobileOpen : collapsed
+
+  function toggleSidebar() {
+    if (isMobile) setMobileOpen((v) => !v)
+    else setCollapsed((v) => !v)
+  }
 
   return (
     <div className={`app-shell ${mobileOpen ? 'drawer-open' : ''}`}>
@@ -39,31 +51,17 @@ export function Layout() {
 
       <Sidebar
         can={can}
-        collapsed={collapsed}
+        role={user?.role}
+        compact={compact}
         mobileOpen={mobileOpen}
+        onToggle={toggleSidebar}
         onNavigate={() => setMobileOpen(false)}
       />
 
       <div className="shell-main">
         <header className="app-header">
           <div className="header-left">
-            <button
-              type="button"
-              className="icon-btn mobile-only"
-              aria-label="Open navigation"
-              onClick={() => setMobileOpen(true)}
-            >
-              <span className="hamburger" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="icon-btn desktop-only"
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              onClick={() => setCollapsed((v) => !v)}
-            >
-              <span className="collapse-icon" aria-hidden="true" />
-            </button>
-            <p className="header-title">Workspace</p>
+            <Breadcrumbs overrideLabel={crumbLabel} />
           </div>
 
           <div className="header-right">
@@ -72,9 +70,8 @@ export function Layout() {
           </div>
         </header>
 
-        <main className="app-main">
-          <Breadcrumbs />
-          {bootstrapping ? <PageSkeleton /> : <Outlet />}
+        <main className={`app-main${fill ? ' app-main-fill' : ''}`}>
+          {bootstrapping ? <RouteSkeleton /> : (children ?? <Outlet />)}
         </main>
       </div>
     </div>

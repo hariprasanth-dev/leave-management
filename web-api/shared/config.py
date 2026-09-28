@@ -4,6 +4,7 @@ from urllib.parse import quote_plus
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_JWT_SECRET = "dev-secret-change-me-in-production"
 _WEB_API_ROOT = Path(__file__).resolve().parents[1]
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -25,12 +26,23 @@ class Settings(BaseSettings):
 
     app_name: str = "LeaveFlow"
     environment: str = "development"
-    jwt_secret: str = "dev-secret-change-me-in-production"
+    jwt_secret: str = DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 30
     refresh_expire_days: int = 7
-    password_reset_expire_minutes: int = 60
+    temp_password_expire_minutes: int = 30
+    temp_password_max_per_hour: int = 3
     frontend_url: str = "http://localhost:5173"
+
+    cors_origins: str = (
+        "http://localhost:5173,http://127.0.0.1:5173"
+    )
+
+    employee_code_prefix: str = "ST"
+
+    login_max_failures_per_email: int = 5
+    login_max_failures_per_ip: int = 20
+    login_lockout_minutes: int = 15
 
     database_url: str | None = None
     database_host: str | None = None
@@ -39,6 +51,15 @@ class Settings(BaseSettings):
     database_password: str | None = None
     database_name: str = "leave_management_api"
     database_sslmode: str | None = None
+
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
+    smtp_ssl: bool = False
+    smtp_timeout_seconds: int = 15
+    mail_from: str = "LeaveFlow <no-reply@leaveflow.local>"
 
     auth_service_url: str = "http://localhost:8001"
     employee_service_url: str = "http://localhost:8002"
@@ -89,10 +110,28 @@ class Settings(BaseSettings):
         self.database_url = _DEFAULT_LOCAL_URL
         if self.environment == "production":
             raise ValueError(
-                "DATABASE_URL is required in production (Render). "
-                "Set Neon pooled connection string in Render Environment."
+                "DATABASE_URL is required in production. "
+                "Set Neon pooled connection string in the host environment."
             )
         return self
+
+    @model_validator(mode="after")
+    def _require_strong_secret_outside_dev(self) -> "Settings":
+        if self.environment != "development" and (
+            self.jwt_secret == DEFAULT_JWT_SECRET or len(self.jwt_secret) < 32
+        ):
+            raise ValueError("JWT_SECRET must be set to a random value of 32+ characters")
+        return self
+
+    @property
+    def smtp_enabled(self) -> bool:
+        return bool(self.smtp_host.strip())
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        origins = {o.strip().rstrip("/") for o in self.cors_origins.split(",") if o.strip()}
+        origins.add(self.frontend_url.rstrip("/"))
+        return sorted(origins)
 
 
 settings = Settings()

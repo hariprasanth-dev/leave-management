@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from shared.auth.permissions import ADMIN_ALL
 from shared.db.session import get_db
 from shared.schemas import Role, UserPublic
-from shared.services import AuthService
+from shared.services.auth_service import AuthService
 
 security = HTTPBearer(auto_error=False)
 
@@ -33,6 +33,16 @@ def get_current_user(
             detail=str(exc),
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+
+
+PASSWORD_CHANGE_REQUIRED = "Password change required"
+
+
+def get_active_user(current_user: UserPublic = Depends(get_current_user)) -> UserPublic:
+    """Signed-in user who isn't still on a temporary password."""
+    if current_user.must_change_password:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PASSWORD_CHANGE_REQUIRED)
+    return current_user
 
 
 def get_optional_user(
@@ -63,7 +73,7 @@ def user_has_role(user: UserPublic, *roles: str | Role) -> bool:
 def require_role(*roles: str) -> Callable[..., UserPublic]:
     """FastAPI dependency factory: require_role('manager', 'admin')."""
 
-    def dependency(current_user: UserPublic = Depends(get_current_user)) -> UserPublic:
+    def dependency(current_user: UserPublic = Depends(get_active_user)) -> UserPublic:
         if not user_has_role(current_user, *roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -77,7 +87,7 @@ def require_role(*roles: str) -> Callable[..., UserPublic]:
 def require_permission(*permissions: str) -> Callable[..., UserPublic]:
     """FastAPI dependency factory: require_permission('leave:approve')."""
 
-    def dependency(current_user: UserPublic = Depends(get_current_user)) -> UserPublic:
+    def dependency(current_user: UserPublic = Depends(get_active_user)) -> UserPublic:
         if not any(user_has_permission(current_user, p) for p in permissions):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { LogoutConfirm } from './LogoutConfirm'
 import './ProfileMenu.css'
 
 function initials(name = '') {
@@ -13,9 +14,10 @@ function initials(name = '') {
 }
 
 export function ProfileMenu() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
+  const [confirmLogout, setConfirmLogout] = useState(false)
+  const closeConfirm = useCallback(() => setConfirmLogout(false), [])
   const menuId = useId()
   const rootRef = useRef(null)
 
@@ -34,10 +36,9 @@ export function ProfileMenu() {
     }
   }, [])
 
-  async function onLogout() {
+  function onLogout() {
     setOpen(false)
-    await logout()
-    navigate('/login', { replace: true })
+    setConfirmLogout(true)
   }
 
   return (
@@ -71,11 +72,12 @@ export function ProfileMenu() {
           <Link role="menuitem" to="/settings" onClick={() => setOpen(false)}>
             Settings
           </Link>
-          <button type="button" role="menuitem" className="danger" onClick={() => void onLogout()}>
+          <button type="button" role="menuitem" className="danger" onClick={onLogout}>
             Log out
           </button>
         </div>
       )}
+      {confirmLogout && <LogoutConfirm onCancel={closeConfirm} />}
     </div>
   )
 }

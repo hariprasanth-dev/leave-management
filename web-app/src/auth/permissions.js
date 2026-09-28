@@ -22,3 +22,11 @@ export function hasRole(user, ...roles) {
   const set = new Set([user.role, ...(user.roles || [])])
   return roles.some((r) => set.has(r))
 }
+
+export const LOCKED_RECORD_REASON = 'Manager records can only be changed by HR or an admin'
+
+/** Managers may edit/deactivate employee-role records only; manager, HR and admin records are locked. */
+export function canEditEmployee(user, employee) {
+  if (!hasPermission(user, PERMISSIONS.EMPLOYEE_MANAGE) || !employee) return false
+  return hasRole(user, 'hr', 'admin') || employee.role === 'employee'
+}

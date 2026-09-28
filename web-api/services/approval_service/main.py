@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import List
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -23,6 +23,8 @@ from shared.schemas import (
     UserPublic,
 )
 from shared.services import ApprovalService
+from shared.services.inbox import notify_leave_decided
+from shared.services.notifications import build_leave_decision_notice, send_leave_decision_email
 
 app = FastAPI(title="LeaveFlow Approval Service", version="0.6.0")
 app.add_middleware(
@@ -40,6 +42,38 @@ def _require_approver_id(user: UserPublic) -> str:
     return user.employee_id
 
 
+def _decide(
+    leave_id: str,
+    action: LeaveStatus,
+    body: ApprovalAction | None,
+    db: Session,
+    current_user: UserPublic,
+    background: BackgroundTasks,
+) -> LeaveRequest:
+    approver_id = _require_approver_id(current_user)
+    comment = body.comment if body else None
+    try:
+        decided = ApprovalService(db).decide(
+            leave_id=leave_id,
+            action=action,
+            approver_employee_id=approver_id,
+            comment=comment,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    notify_leave_decided(db, decided.id, approver_id, comment)
+    # Email goes out after the response; a mail failure never undoes the decision.
+    notice = build_leave_decision_notice(db, decided.id, approver_id, comment)
+    if notice is not None:
+        background.add_task(send_leave_decision_email, notice)
+    return decided
+
+
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service="approval-service")
@@ -50,8 +84,7 @@ def pending_approvals(
     db: Session = Depends(get_db),
     current_user: UserPublic = Depends(require_permission(LEAVE_APPROVE)),
 ) -> List[LeaveRequest]:
-    _ = current_user
-    return ApprovalService(db).pending()
+    return ApprovalService(db).pending(approver_employee_id=current_user.employee_id)
 
 
 @app.get("/approvals/processed", response_model=LeaveListResponse)
@@ -68,38 +101,20 @@ def processed_approvals(
 @app.post("/approvals/{leave_id}/approve", response_model=LeaveRequest)
 def approve(
     leave_id: str,
+    background: BackgroundTasks,
     body: ApprovalAction | None = None,
     db: Session = Depends(get_db),
     current_user: UserPublic = Depends(require_permission(LEAVE_APPROVE)),
 ) -> LeaveRequest:
-    try:
-        return ApprovalService(db).decide(
-            leave_id=leave_id,
-            action=LeaveStatus.approved,
-            approver_employee_id=_require_approver_id(current_user),
-            comment=body.comment if body else None,
-        )
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _decide(leave_id, LeaveStatus.approved, body, db, current_user, background)
 
 
 @app.post("/approvals/{leave_id}/reject", response_model=LeaveRequest)
 def reject(
     leave_id: str,
+    background: BackgroundTasks,
     body: ApprovalAction | None = None,
     db: Session = Depends(get_db),
     current_user: UserPublic = Depends(require_permission(LEAVE_APPROVE)),
 ) -> LeaveRequest:
-    try:
-        return ApprovalService(db).decide(
-            leave_id=leave_id,
-            action=LeaveStatus.rejected,
-            approver_employee_id=_require_approver_id(current_user),
-            comment=body.comment if body else None,
-        )
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _decide(leave_id, LeaveStatus.rejected, body, db, current_user, background)

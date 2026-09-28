@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
 from shared.auth import (
     EMPLOYEE_MANAGE,
     EMPLOYEE_READ,
+    get_current_user,
     require_permission,
     user_has_permission,
 )
@@ -59,7 +60,12 @@ def list_employees(
     manager_id: Optional[str] = Query(default=None),
     department_id: Optional[str] = Query(default=None),
     is_active: Optional[bool] = Query(default=None),
-    q: Optional[str] = Query(default=None),
+    q: Optional[str] = Query(default=None, max_length=100),
+    role: Optional[Literal["employee", "manager", "hr", "admin"]] = Query(default=None),
+    sort: Literal["code", "name", "email", "department", "role", "manager", "hire_date", "status"] = Query(
+        default="code"
+    ),
+    order: Literal["asc", "desc"] = Query(default="asc"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     scope: Optional[str] = Query(default=None, description="'team' limits to direct reports"),
@@ -84,11 +90,36 @@ def list_employees(
             department_id=department_id,
             is_active=is_active,
             q=q,
+            role=role,
+            sort=sort,
+            order=order,
             page=page,
             page_size=page_size,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/employees/next-code")
+def get_next_employee_code(
+    db: Session = Depends(get_db),
+    current_user: UserPublic = Depends(require_permission(EMPLOYEE_MANAGE)),
+) -> dict[str, str]:
+    _ = current_user
+    return {"employee_code": EmployeeService(db).next_employee_code()}
+
+
+@app.get("/employees/me", response_model=Employee)
+def get_my_profile(
+    db: Session = Depends(get_db),
+    current_user: UserPublic = Depends(get_current_user),
+) -> Employee:
+    if not current_user.employee_id:
+        raise HTTPException(status_code=404, detail="User is not linked to an employee profile")
+    try:
+        return EmployeeService(db).get(current_user.employee_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/employees/{employee_id}", response_model=Employee)
@@ -112,9 +143,8 @@ def create_employee(
     db: Session = Depends(get_db),
     current_user: UserPublic = Depends(require_permission(EMPLOYEE_MANAGE)),
 ) -> Employee:
-    _ = current_user
     try:
-        return EmployeeService(db).create(body)
+        return EmployeeService(db).create(body, actor=current_user)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -126,9 +156,10 @@ def update_employee(
     db: Session = Depends(get_db),
     current_user: UserPublic = Depends(require_permission(EMPLOYEE_MANAGE)),
 ) -> Employee:
-    _ = current_user
     try:
-        return EmployeeService(db).update(employee_id, body)
+        return EmployeeService(db).update(employee_id, body, actor=current_user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
@@ -141,9 +172,10 @@ def deactivate_employee(
     db: Session = Depends(get_db),
     current_user: UserPublic = Depends(require_permission(EMPLOYEE_MANAGE)),
 ) -> Employee:
-    _ = current_user
     try:
-        return EmployeeService(db).deactivate(employee_id)
+        return EmployeeService(db).deactivate(employee_id, actor=current_user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:

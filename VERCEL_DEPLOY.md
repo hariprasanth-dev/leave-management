@@ -36,7 +36,7 @@ Push to `main` or redeploy in Vercel dashboard.
 
 ## 4. Verify
 
-- `https://YOUR-APP.vercel.app/health/version` → `"gateway_version":"0.2.2"`
+- `https://YOUR-APP.vercel.app/health/version` → `"gateway_version":"0.3.0"`
 - `https://YOUR-APP.vercel.app/health/db` → `"status":"ok"`, host contains `neon.tech`
 - Login at `/login` with `employee@example.com` / `password123`
 

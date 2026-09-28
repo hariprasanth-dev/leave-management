@@ -8,11 +8,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY shared ./shared
 COPY gateway ./gateway
 
-# Fail the image build if auth routes are missing (avoids silent old-gateway deploys).
 RUN test -f shared/routers/auth.py
 
 ENV PYTHONPATH=/app
-ENV GATEWAY_BUILD=0.2.2
+ENV GATEWAY_BUILD=0.3.0
 
 EXPOSE 8000
 

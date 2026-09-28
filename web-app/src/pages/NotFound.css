@@ -1,0 +1,240 @@
+/* Fills the whole content area beside the sidebar and under the header. */
+.nf-in-app {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.nf-hero {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background:
+    radial-gradient(circle at 18% 15%, rgba(94, 234, 212, 0.18), transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(129, 140, 248, 0.18), transparent 42%),
+    #fff;
+}
+
+.nf-hero::before,
+.nf-hero::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 118, 110, 0.1);
+  pointer-events: none;
+}
+
+.nf-hero::before {
+  width: 38rem;
+  height: 38rem;
+  right: -14rem;
+  top: -16rem;
+}
+
+.nf-hero::after {
+  width: 26rem;
+  height: 26rem;
+  left: -10rem;
+  bottom: -12rem;
+}
+
+.nf-code {
+  position: relative;
+  margin: 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(7rem, 22vw, 15rem);
+  font-weight: 600;
+  line-height: 0.9;
+  letter-spacing: -0.06em;
+  background: linear-gradient(135deg, #0f766e 10%, #1e40af 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  user-select: none;
+}
+
+.nf-hero h1 {
+  position: relative;
+  margin: 1rem 0 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.nf-lead {
+  position: relative;
+  margin: 0.8rem auto 0;
+  max-width: 34rem;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+.nf-path {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.4rem;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+}
+
+.nf-actions {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+.nf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 10rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.65rem;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+
+.nf-btn.primary {
+  border: none;
+  color: #fff;
+  background: linear-gradient(135deg, #0f766e, #1e40af);
+}
+
+.nf-btn.primary:hover {
+  filter: brightness(1.08);
+}
+
+.nf-btn.ghost {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: #fff;
+  color: #334155;
+}
+
+.nf-btn.ghost:hover {
+  background: #f8fafc;
+}
+
+.nf-suggest {
+  position: relative;
+  margin-top: 2.25rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  width: min(34rem, 100%);
+}
+
+.nf-suggest p {
+  margin: 0 0 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+}
+
+.nf-suggest ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.nf-suggest a {
+  display: inline-block;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f766e;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nf-suggest a:hover {
+  background: rgba(15, 118, 110, 0.15);
+}
+
+/* Signed-out: full screen with a slim brand bar in place of the app header. */
+.nf-standalone {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0 1.25rem 1.25rem;
+  background:
+    radial-gradient(ellipse 70% 45% at 0% 0%, rgba(15, 118, 110, 0.12), transparent),
+    radial-gradient(ellipse 50% 35% at 100% 0%, rgba(30, 64, 175, 0.08), transparent),
+    #f4f6f8;
+}
+
+.nf-standalone-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 4.25rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.nf-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.nf-brand-mark {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  background: linear-gradient(145deg, #0f766e, #1e40af);
+}
+
+.nf-bar-btn {
+  min-width: 0;
+  padding: 0.5rem 1rem;
+}
+
+@media (max-width: 640px) {
+  .nf-hero {
+    padding: 2.5rem 1rem;
+  }
+
+  .nf-btn {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .nf-bar-btn {
+    flex: 0 0 auto;
+  }
+}

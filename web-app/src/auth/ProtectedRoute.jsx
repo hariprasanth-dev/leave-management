@@ -1,22 +1,23 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { PageSkeleton } from '../components/Skeleton'
+import { AuthBootSkeleton, RouteSkeleton, ShellSkeleton } from '../components/Skeleton'
 import { useAuth } from './AuthContext'
 import { hasAnyPermission, hasPermission } from './permissions'
 
+const PASSWORD_SETTINGS_PATH = '/settings'
+
 export function ProtectedRoute() {
-  const { isAuthenticated, bootstrapping } = useAuth()
+  const { isAuthenticated, bootstrapping, user } = useAuth()
   const location = useLocation()
 
-  if (bootstrapping) {
-    return (
-      <div className="auth-boot">
-        <PageSkeleton />
-      </div>
-    )
-  }
+  if (bootstrapping) return <ShellSkeleton />
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
+
+  // Signed in with an emailed temporary password: nothing else until a new one is set.
+  if (user?.must_change_password && location.pathname !== PASSWORD_SETTINGS_PATH) {
+    return <Navigate to={PASSWORD_SETTINGS_PATH} replace />
   }
 
   return <Outlet />
@@ -28,7 +29,7 @@ export function PublicOnlyRoute() {
   if (bootstrapping) {
     return (
       <div className="auth-boot">
-        <PageSkeleton />
+        <AuthBootSkeleton />
       </div>
     )
   }
@@ -44,7 +45,7 @@ export function RequirePermission({ permission, anyOf }) {
   const { user, bootstrapping } = useAuth()
 
   if (bootstrapping) {
-    return <PageSkeleton />
+    return <RouteSkeleton />
   }
 
   const allowed = anyOf?.length
