@@ -1,0 +1,95 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: leaveflow
+      POSTGRES_PASSWORD: leaveflow
+      POSTGRES_DB: leaveflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - leaveflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leaveflow -d leaveflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://leaveflow:leaveflow@postgres:5432/leaveflow
+      AUTH_SERVICE_URL: http://auth-service:8001
+      EMPLOYEE_SERVICE_URL: http://employee-service:8002
+      LEAVE_SERVICE_URL: http://leave-service:8003
+      APPROVAL_SERVICE_URL: http://approval-service:8004
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      employee-service:
+        condition: service_started
+      leave-service:
+        condition: service_started
+      approval-service:
+        condition: service_started
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth_service/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql+psycopg://leaveflow:leaveflow@postgres:5432/leaveflow
+      JWT_SECRET: change-me-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  employee-service:
+    build:
+      context: .
+      dockerfile: services/employee_service/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql+psycopg://leaveflow:leaveflow@postgres:5432/leaveflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  leave-service:
+    build:
+      context: .
+      dockerfile: services/leave_service/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql+psycopg://leaveflow:leaveflow@postgres:5432/leaveflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  approval-service:
+    build:
+      context: .
+      dockerfile: services/approval_service/Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: postgresql+psycopg://leaveflow:leaveflow@postgres:5432/leaveflow
+      LEAVE_SERVICE_URL: http://leave-service:8003
+    depends_on:
+      postgres:
+        condition: service_healthy
+      leave-service:
+        condition: service_started
+
+volumes:
+  leaveflow_pgdata:

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/check-vercel-root.mjs && vite build",
+    "sync-server": "node scripts/sync-server-from-web-api.mjs",
+    "build": "node scripts/sync-server-from-web-api.mjs && node scripts/check-vercel-root.mjs && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },

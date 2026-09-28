@@ -4,18 +4,30 @@ Render is optional. This setup runs the FastAPI gateway on **Vercel serverless**
 
 ## 1. Vercel project settings
 
+Either layout works:
+
+| Root Directory | Config used |
+|----------------|-------------|
+| **`web-app`** (common) | `web-app/vercel.json` + `web-app/api/index.py` + bundled `web-app/server/` |
+| **`.`** (repo root) | Root `vercel.json` + `api/index.py` + `web-api/` |
+
+After backend changes, refresh the bundle before push:
+
+```powershell
+cd web-app
+npm run sync-server
+git add server
+```
+
 | Setting | Value |
 |---------|--------|
-| **Root Directory** | `.` (repository root, **not** `web-app`) |
-| **Framework** | Other (uses root `vercel.json`) |
+| **Framework** | Vite (if Root = `web-app`) or Other (if Root = `.`) |
 
 ### Login returns **405 Method Not Allowed**?
 
-The Network tab shows `POST /api/auth/login` with response `index.html` — the SPA rewrite is handling `/api` instead of the Python gateway.
+`POST /api/auth/login` must hit **`/api/index.py`**, not `index.html`. Redeploy after pulling the latest `web-app/vercel.json` (rewrites to `/api/index.py`).
 
-**Fix:** Vercel → **Settings → General → Root Directory** → clear the field or set to **`.`** (repo root), **not** `web-app`. Redeploy. Then open `/health/version` (must return JSON, not the login page).
-
-If Root Directory must stay `web-app`, set **`VITE_API_BASE_URL`** to your API host (e.g. Render) and redeploy; do **not** use empty same-origin `/api` in that mode.
+Open **`/health/version`** in the browser — you must see JSON (`gateway_version`), not the login page.
 
 ## 2. Environment variables (Production)
 

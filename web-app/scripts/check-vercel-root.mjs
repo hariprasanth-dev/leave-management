@@ -1,6 +1,5 @@
 /**
- * Same-origin API (/api/auth/login) needs repo-root Vercel deploy (../api/index.py + web-api).
- * If Root Directory is only web-app, POST /api/* returns index.html → 405.
+ * Vercel build guard: need either repo-root api + web-api, or web-app/server + web-app/api.
  */
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -9,24 +8,27 @@ if (process.env.VERCEL !== '1') {
   process.exit(0)
 }
 
-const apiEntry = join(process.cwd(), '..', 'api', 'index.py')
-const backend = join(process.cwd(), '..', 'web-api', 'gateway', 'main.py')
+const cwd = process.cwd()
+const embeddedBackend = join(cwd, 'server', 'gateway', 'main.py')
+const embeddedApi = join(cwd, 'api', 'index.py')
+const repoApi = join(cwd, '..', 'api', 'index.py')
+const repoBackend = join(cwd, '..', 'web-api', 'gateway', 'main.py')
 
-if (existsSync(apiEntry) && existsSync(backend)) {
+const okEmbedded = existsSync(embeddedBackend) && existsSync(embeddedApi)
+const okRepoRoot = existsSync(repoApi) && existsSync(repoBackend)
+
+if (okEmbedded || okRepoRoot) {
   process.exit(0)
 }
 
 console.error(`
-LeaveFlow Vercel misconfiguration:
+LeaveFlow Vercel: Python API is missing from this deployment.
 
-  POST /api/auth/login is returning 405 because the Python API is not deployed.
+  If Root Directory is "web-app", commit web-app/server (run: npm run sync-server)
+  or ensure the build runs sync-server-from-web-api.mjs.
 
-  Fix: Vercel → Project Settings → General → Root Directory → set to "." (repository root),
-  not "web-app". Then redeploy.
+  If Root Directory is ".", use the root vercel.json and set DATABASE_URL in Vercel.
 
-  See VERCEL_DEPLOY.md in the repo root.
-
-  Alternative: keep Root Directory "web-app" but set VITE_API_BASE_URL to a separate API host
-  (e.g. Render) in Vercel env vars — do not use same-origin /api/... in that mode.
+  See VERCEL_DEPLOY.md
 `)
 process.exit(1)

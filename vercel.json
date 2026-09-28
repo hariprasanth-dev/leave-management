@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd web-app && npm run build",
+  "buildCommand": "node web-app/scripts/sync-server-from-web-api.mjs && cd web-app && npm run build",
   "outputDirectory": "web-app/dist",
   "installCommand": "pip install -r api/requirements.txt && cd web-app && npm install",
   "functions": {
@@ -11,10 +11,10 @@
     }
   },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api" },
-    { "source": "/api", "destination": "/api" },
-    { "source": "/health/:path*", "destination": "/api" },
-    { "source": "/health", "destination": "/api" },
-    { "source": "/((?!api(?:/|$)|health(?:/|$)).*)", "destination": "/index.html" }
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/api", "destination": "/api/index.py" },
+    { "source": "/health/(.*)", "destination": "/api/index.py" },
+    { "source": "/health", "destination": "/api/index.py" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
