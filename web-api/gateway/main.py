@@ -34,6 +34,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def add_gateway_version_header(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Gateway-Version"] = GATEWAY_VERSION
+    return response
+
 PROXY_SERVICES = ("employees", "leaves", "approvals")
 
 ROUTE_MAP: dict[str, str] = {

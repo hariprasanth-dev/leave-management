@@ -1,12 +1,12 @@
-# Render — connect this repo with Root Directory = web-api
+# Blueprint: apply in Render Dashboard → New → Blueprint
 services:
   - type: web
     name: leave-management-api
-    runtime: docker
+    runtime: python
     rootDir: web-api
-    dockerfilePath: ./gateway/Dockerfile
-    dockerContext: .
     plan: free
+    buildCommand: bash build.sh
+    startCommand: uvicorn gateway.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health/version
     envVars:
       - key: ENVIRONMENT
