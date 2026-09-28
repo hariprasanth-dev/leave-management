@@ -12,7 +12,7 @@ COPY gateway ./gateway
 RUN test -f shared/routers/auth.py
 
 ENV PYTHONPATH=/app
-ENV GATEWAY_BUILD=0.2.1
+ENV GATEWAY_BUILD=0.2.2
 
 EXPOSE 8000
 

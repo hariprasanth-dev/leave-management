@@ -98,7 +98,7 @@ function apiErrorMessage(err, fallback) {
   const detail = err?.response?.data?.detail
   if (status === 502) {
     if (typeof detail === 'string' && detail.includes('service unavailable')) {
-      return 'Backend auth is unavailable. Redeploy the API on Render (gateway v0.2.1+) with Neon DATABASE_URL.'
+      return 'Backend auth is unavailable. Use Vercel monorepo deploy (see VERCEL_DEPLOY.md) or redeploy Render with DATABASE_URL (Neon).'
     }
     return 'Backend server error (502). Try again in a minute if the API was sleeping.'
   }

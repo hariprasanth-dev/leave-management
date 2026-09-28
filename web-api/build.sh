@@ -6,6 +6,6 @@ pip install -r requirements.txt
 python -c "
 from gateway.main import GATEWAY_VERSION
 print('=== LeaveFlow gateway build:', GATEWAY_VERSION, '===')
-if GATEWAY_VERSION < '0.2.1':
-    raise SystemExit('Refusing to build: need gateway 0.2.1+ for /api/auth/login')
+if GATEWAY_VERSION < '0.2.2':
+    raise SystemExit('Refusing to build: need gateway 0.2.2+ for /api/auth/login')
 "

@@ -22,7 +22,7 @@ const ENVIRONMENTS = {
     enableMockData: false,
   },
   production: {
-    apiBaseUrl: 'https://leave-management-suev.onrender.com/',
+    apiBaseUrl: '',
     apiKey: '',
     enableDebug: false,
     enableMockData: false,

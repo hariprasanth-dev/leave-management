@@ -7,6 +7,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _WEB_API_ROOT = Path(__file__).resolve().parents[1]
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
+_env_candidates = (_WEB_API_ROOT / ".env", _REPO_ROOT / ".env.local")
+_env_files = tuple(str(p) for p in _env_candidates if p.is_file())
+
 _DEFAULT_LOCAL_URL = (
     "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/leave_management_api"
 )
@@ -15,10 +18,7 @@ _PLACEHOLDER_MARKERS = ("YOUR-PASSWORD", "YOUR_", ":PASSWORD@", "CHANGEME")
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(
-            str(_WEB_API_ROOT / ".env"),
-            str(_REPO_ROOT / ".env.local"),
-        ),
+        env_file=_env_files or None,
         env_file_encoding="utf-8",
         extra="ignore",
     )

@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+import os
 import sys
 from pathlib import Path
 
@@ -12,11 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from gateway.inline_services import mount_inline_services
 from shared.config import settings
 from shared.routers.auth import router as auth_router
 from shared.schemas import HealthResponse
 
-GATEWAY_VERSION = "0.2.1"
+GATEWAY_VERSION = "0.2.2"
 
 app = FastAPI(
     title="LeaveFlow API Gateway",
@@ -25,6 +27,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+mount_inline_services(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -110,6 +113,17 @@ def health_db() -> dict[str, Any]:
 
 @app.get("/health/services")
 async def health_services() -> dict[str, Any]:
+    if os.getenv("INLINE_SERVICES") == "1":
+        return {
+            "gateway": "ok",
+            "mode": "inline",
+            "services": {
+                "auth": {"status": "ok", "location": "gateway"},
+                "employees": {"status": "ok", "location": "inline"},
+                "leaves": {"status": "ok", "location": "inline"},
+                "approvals": {"status": "ok", "location": "inline"},
+            },
+        }
     results: dict[str, Any] = {"auth": {"status": "ok", "location": "gateway"}}
     async with httpx.AsyncClient(timeout=5.0) as client:
         for name, base_url in ROUTE_MAP.items():
@@ -131,40 +145,42 @@ def _upstream_path(service: str, path: str) -> str:
     return f"/{path}"
 
 
-@app.api_route("/api/{service}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-@app.api_route("/api/{service}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def proxy(
-    service: Literal["employees", "leaves", "approvals"],
-    request: Request,
-    path: str = "",
-) -> Response:
-    base_url = ROUTE_MAP[service]
-    upstream = f"{base_url}{_upstream_path(service, path)}"
-    headers = {k: v for k, v in request.headers.items() if k.lower() not in {"host", "content-length"}}
-    body = await request.body()
+if os.getenv("INLINE_SERVICES") != "1":
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        try:
-            upstream_response = await client.request(
-                method=request.method,
-                url=upstream,
-                params=request.query_params,
-                content=body,
-                headers=headers,
-            )
-        except httpx.HTTPError as exc:
-            raise HTTPException(status_code=502, detail=f"{service} service unavailable") from exc
+    @app.api_route("/api/{service}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+    @app.api_route("/api/{service}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+    async def proxy(
+        service: Literal["employees", "leaves", "approvals"],
+        request: Request,
+        path: str = "",
+    ) -> Response:
+        base_url = ROUTE_MAP[service]
+        upstream = f"{base_url}{_upstream_path(service, path)}"
+        headers = {k: v for k, v in request.headers.items() if k.lower() not in {"host", "content-length"}}
+        body = await request.body()
 
-    excluded = {"content-encoding", "transfer-encoding", "content-length", "connection"}
-    response_headers = {
-        k: v for k, v in upstream_response.headers.items() if k.lower() not in excluded
-    }
-    return Response(
-        content=upstream_response.content,
-        status_code=upstream_response.status_code,
-        headers=response_headers,
-        media_type=upstream_response.headers.get("content-type"),
-    )
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                upstream_response = await client.request(
+                    method=request.method,
+                    url=upstream,
+                    params=request.query_params,
+                    content=body,
+                    headers=headers,
+                )
+            except httpx.HTTPError as exc:
+                raise HTTPException(status_code=502, detail=f"{service} service unavailable") from exc
+
+        excluded = {"content-encoding", "transfer-encoding", "content-length", "connection"}
+        response_headers = {
+            k: v for k, v in upstream_response.headers.items() if k.lower() not in excluded
+        }
+        return Response(
+            content=upstream_response.content,
+            status_code=upstream_response.status_code,
+            headers=response_headers,
+            media_type=upstream_response.headers.get("content-type"),
+        )
 
 
 @app.exception_handler(Exception)
