@@ -1,42 +1,118 @@
-# LeaveFlow — run the app on your computer
+# LeaveFlow
 
-LeaveFlow is a leave-management web app: employees request time off, managers approve or reject, and both sides get in-app alerts (and email when SMTP is set up).
+LeaveFlow is a leave-management web app. Employees request time off, managers approve or reject those requests, and both sides see in-app alerts. Email is sent when SMTP is configured.
 
-This repo has two folders you need:
+The repository has two apps you run:
 
-| Folder | What it is |
-|--------|------------|
-| **`web-api`** | Backend (database + API). Must be running first. |
-| **`web-app`** | Website you open in the browser. |
+| Folder | Role |
+|--------|------|
+| `web-api` | Python API and PostgreSQL schema |
+| `web-app` | React website |
 
-Everything you see in the UI (people, leaves, balances) comes from the **backend**, not from hard-coded demo data in the frontend.
-
----
-
-## Who this guide is for
-
-These steps are written for **reviewers and testers who are not developers**. You copy commands into **PowerShell** or **Command Prompt** on Windows. If you use a Mac, the same ideas apply; use `python3` / `source .venv/bin/activate` instead of the Windows paths below.
-
-**Time:** about 30–45 minutes the first time (installing PostgreSQL takes the longest). After that, starting the app takes about one minute.
+The website loads people, leave, and balances from the API. It does not ship a built-in dataset.
 
 ---
 
-## What to install first (one time)
+## Technology stack
 
-Install these on your PC and restart the terminal after each install:
+| Layer | Choice |
+|-------|--------|
+| Website | React 19, React Router 7, Vite 8 |
+| HTTP client | Axios |
+| API | Python 3.11+, FastAPI, Pydantic, Uvicorn |
+| Data access | SQLAlchemy 2, Alembic migrations, psycopg |
+| Database | PostgreSQL 16+ locally, or Neon PostgreSQL when hosted |
+| Auth | JWT access tokens (`python-jose`), refresh tokens, bcrypt password hashes |
+| Email | SMTP (optional). In-app notifications work without it |
+| Hosting | Vite static build plus one Python function on Vercel (`INLINE_SERVICES=1`) |
 
-1. **Python 3.11 or newer** — [https://www.python.org/downloads/](https://www.python.org/downloads/)  
-   On the installer, tick **“Add python.exe to PATH”**, then finish.
+Local development uses Node.js (LTS) for the website and a Python virtual environment for the API.
 
-2. **Node.js (LTS)** — [https://nodejs.org/](https://nodejs.org/)  
-   This includes `npm`, which runs the website.
+---
 
-3. **PostgreSQL 16+** — [https://www.postgresql.org/download/windows/](https://www.postgresql.org/download/windows/)  
-   Remember the password you choose for the `postgres` user (the guide below assumes `postgres` / `postgres`; change `.env` if yours is different).
+## Architecture overview
 
-4. **Git** (optional) — only if you clone the repo. If you received a ZIP, unzip it and open the folder in File Explorer.
+Locally, the browser talks only to the **gateway** on port 8000. The gateway owns sign-in (`/api/auth/*`) and proxies the other domains to small FastAPI services:
 
-Check that tools work (open a **new** PowerShell window):
+```
+Browser (Vite :5173)
+    → Gateway :8000
+         → auth routes (in the gateway process)
+         → employees :8002
+         → leaves :8003
+         → approvals :8004
+    → PostgreSQL database leave_management_api
+```
+
+`web-api/scripts/start-local.bat` applies migrations, then starts those five processes. Closing the helper windows stops the API.
+
+On Vercel, the same gateway runs as one serverless function. `INLINE_SERVICES=1` mounts the employee, leave, and approval routes inside that process, so there are no separate ports. The website and API share one domain. The database is Neon (use the **pooled** connection string).
+
+Request flow inside the API:
+
+```
+HTTP route → service (shared/services) → repository → PostgreSQL
+```
+
+Access control is permission-based. The UI hides navigation the signed-in user cannot use, and the API enforces the same permissions. Roles seeded in the database are `employee`, `manager`, `hr`, and `admin`. `admin:all` expands to every permission.
+
+Sign-in issues a short-lived access token and a refresh token. Failed attempts are stored in `login_attempts` and lock the account temporarily after repeated failures. Passwords are stored as bcrypt hashes. Refresh tokens and temporary passwords are stored as hashes, not as raw secrets.
+
+---
+
+## Data model overview
+
+Schema changes live in `web-api/alembic/versions`. Models are in `web-api/shared/models/entities.py`.
+
+```
+roles 1──* role_permissions *──1 permissions
+users 1──* user_roles *──1 roles
+users 1──1 employees
+departments 1──* employees
+employees 1──* employees          (manager → direct reports)
+employees 1──* leave_balances *──1 leave_types
+employees 1──* leave_requests *──1 leave_types
+leave_requests 1──* leave_approvals *──1 employees (approver)
+users 1──* notifications
+users 1──* refresh_tokens
+users 1──* password_reset_tokens
+holidays                          (calendar, not tied to a user)
+login_attempts                    (email + IP, including unknown emails)
+```
+
+| Table | What it stores |
+|-------|----------------|
+| `users` | Email, password hash, name, active flag, must-change-password flag |
+| `roles`, `permissions`, `user_roles`, `role_permissions` | Who can do what |
+| `departments` | Named org units (`Engineering` / `ENG` in the seed) |
+| `employees` | Code (`ST-01`), department, manager, hire date, link to `users` |
+| `leave_types` | Policy codes. Seed creates **Earned** (12 days/year) and **Sick** (10 days/year). Both are paid and require approval |
+| `leave_balances` | Per employee, leave type, and calendar year: `entitled`, `used`, `pending`. `used + pending` cannot exceed `entitled`. Remaining is `entitled - used` |
+| `leave_requests` | Start, end, working-day count, reason, status `pending` / `approved` / `rejected` / `cancelled` |
+| `leave_approvals` | Approver, action `approved` or `rejected`, optional comment |
+| `holidays` | Named dates. Optional holidays are flagged |
+| `notifications` | In-app alerts for one user, optionally linked to a leave request |
+| `refresh_tokens` | Hashed refresh tokens, expiry, revocation |
+| `password_reset_tokens` | Hashed one-time temporary passwords, expiry, used-at |
+| `login_attempts` | Success and failure rows used for lockout |
+
+Browse views for SQL clients: `v_employee_directory`, `v_leave_request_list`. Names and emails live on `users` (and those views), not on `employees` alone.
+
+A request moves pending days into `pending` when it is submitted. Approval moves them from `pending` to `used`. Rejection or cancellation releases `pending`. An employee with no manager above them can self-record leave; that decision is stored as an approval with a self-recorded comment.
+
+---
+
+## Setup instructions
+
+These steps are for Windows PowerShell. On macOS, use `python3`, `source .venv/bin/activate`, and `cp` instead of `copy`. First-time setup is about 30–45 minutes. Starting the app after that takes about a minute.
+
+### Install once
+
+1. **Python 3.11+** — [python.org/downloads](https://www.python.org/downloads/). Tick **Add python.exe to PATH**.
+2. **Node.js LTS** — [nodejs.org](https://nodejs.org/). This includes `npm`.
+3. **PostgreSQL 16+** — [postgresql.org/download/windows](https://www.postgresql.org/download/windows/). This guide assumes user `postgres`, password `postgres`, port `5432`. If yours differ, change `DATABASE_URL` in `web-api/.env`.
+
+Check a new terminal:
 
 ```powershell
 python --version
@@ -44,44 +120,15 @@ node --version
 npm --version
 ```
 
-You should see version numbers, not “command not found”.
+### Create the database
 
----
+In pgAdmin, create a database named exactly **`leave_management_api`**. The app does not use `leave_management_db`.
 
-## First-time setup
-
-Do these steps **once** per machine. Replace `D:\MVP\leave-management` with the folder where you saved the project.
-
-### Step 1 — Create the database
-
-1. Open **pgAdmin** (installed with PostgreSQL) or any Postgres tool.
-2. Connect to your local server.
-3. Create a database named exactly: **`leave_management_api`**  
-   (Not `leave_management_db` — the app will not use that name.)
-
-### Step 2 — Backend (`web-api`)
-
-Open PowerShell:
+### Backend
 
 ```powershell
 cd D:\MVP\leave-management\web-api
-```
-
-Copy the settings template and edit if your Postgres password is not `postgres`:
-
-```powershell
 copy .env.example .env
-notepad .env
-```
-
-Important lines in **`.env`** (not `.env.example` — the app only reads **`.env`**):
-
-- `DATABASE_URL` — must point at **`leave_management_api`**
-- Optional **email**: fill in `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM` if you want real emails. Leave `SMTP_HOST` empty to skip email (forgot-password temp codes are then logged in the auth service window in development only).
-
-Create the Python environment and load demo data:
-
-```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -89,11 +136,11 @@ pip install -r requirements.txt
 python scripts\seed.py
 ```
 
-You should see demo login emails printed at the end.
+The API reads **`web-api/.env`**, not `.env.example`. `DATABASE_URL` must point at `leave_management_api`. Leave `SMTP_HOST` empty to skip email.
 
-### Step 3 — Frontend (`web-app`)
+If `Activate.ps1` is blocked, run once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
-In the same or a new PowerShell window:
+### Website
 
 ```powershell
 cd D:\MVP\leave-management\web-app
@@ -101,128 +148,88 @@ copy .env.example .env
 npm install
 ```
 
-The default `.env` points the site at `http://127.0.0.1:8000` — leave it unless your API runs elsewhere.
+The default frontend env calls `http://127.0.0.1:8000`. Leave that unless the API runs elsewhere.
 
----
+### Start (every session)
 
-## Start the app (every time you review)
-
-You need **two** terminals left open while you use LeaveFlow.
-
-### Terminal 1 — Backend
+Terminal 1 — API (leave it open; extra windows for the services are expected):
 
 ```powershell
 cd D:\MVP\leave-management\web-api
 .\scripts\start-local.bat
 ```
 
-Wait until you see **“Backend started”**. `start-local.bat` runs **`alembic upgrade head`** first so new tables (e.g. `login_attempts`) exist before login. Several small black windows may open (auth, employees, leaves, approvals, gateway). That is normal.
+Wait for **Backend started**. Check [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db). Interactive API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
-Quick check in the browser: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db)  
-You want a JSON response that shows the database is connected.
-
-API documentation (optional): [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-
-### Terminal 2 — Website
+Terminal 2 — website:
 
 ```powershell
 cd D:\MVP\leave-management\web-app
 npm run dev
 ```
 
-Open the address shown (usually **[http://localhost:5173](http://localhost:5173)** or [http://127.0.0.1:5173](http://127.0.0.1:5173)).
+Open the URL Vite prints (usually [http://127.0.0.1:5173](http://127.0.0.1:5173)).
 
-### Stop the app
+Stop the API by closing the helper windows, or run `start-local.bat` again (it frees ports 8000–8004 first). Stop the website with **Ctrl+C**.
 
-- Close the backend helper windows, or run `start-local.bat` again (it stops old processes on ports 8000–8004 first).
-- In the frontend terminal, press **Ctrl+C**.
+### Demo accounts
 
----
+Created by `python scripts\seed.py`. Password for both is `password123`.
 
-## Demo logins (after `seed.py`)
+| Role | Email |
+|------|--------|
+| Employee (Alex Employee, `ST-01`) | `employee@example.com` |
+| Manager (Morgan Manager, `ST-02`) | `harip5340@gmail.com` |
 
-| Role | Email | Password |
-|------|--------|----------|
-| **Employee** | `employee@example.com` | `password123` |
-| **Manager** | `harip5340@gmail.com` | `password123` |
+If seed prints `Seed skipped`, roles already exist and these accounts are unchanged. Use a private window for a second session.
 
-Use a private/incognito window if you want employee and manager sessions in two browsers at once.
+### Email (optional)
 
----
+Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `MAIL_FROM` in `web-api/.env`, then restart the API. Leave applied, approved, or rejected can email the other party. Forgot password emails a one-time temporary password (30 minutes, at most 3 per hour). With SMTP unset in development, that temporary password is written to the auth service log only. Mailtrap and similar sandboxes show mail in their inbox, not in Gmail.
 
-## Review checklist (walk through the product)
+### Hosted deploy (Vercel + Neon)
 
-Use this as a script for UAT or stakeholder demos.
+See [VERCEL_DEPLOY.md](VERCEL_DEPLOY.md). Production needs `DATABASE_URL` (Neon **pooled** URL), `JWT_SECRET` (at least 32 characters, not the dev default), `ENVIRONMENT=production`, and `FRONTEND_URL` set to the site origin. Do not set `VITE_API_BASE_URL` when the API is on the same domain. After env changes, redeploy.
 
-### As employee (`employee@example.com`)
-
-1. **Sign in** — Login page: brand panel on the left, form on the right; “Forgot password?” under the password field.
-2. **Dashboard** — Leave summary and stats in one place; sidebar has **My Leaves** (not a separate “Apply leave” item).
-3. **My Leaves** — Open **Apply leave**, pick dates, confirm the banner shows **“N day(s) selected”**, submit.
-4. **Notifications** — Bell icon: new items after submit (may take up to ~30 seconds).
-5. **Profile** — Employee ID format like **ST-01** (company prefix + number).
-6. **Settings** — Change password (optional); rules show as you type.
-7. **Forgot password** (optional) — Sign out, use Forgot password; with SMTP configured, check your mail provider (Mailtrap sandbox shows mail in the Mailtrap inbox, not Gmail).
-
-### As manager (`harip5340@gmail.com`)
-
-1. **Dashboard** — Pending approvals, **My team** (at most 5 people) and **View all** to Employees.
-2. **Approvals** — Approve or reject a pending request; employee gets in-app notification (and email if SMTP is on).
-3. **Employees** — Search, sort, filter; **Add employee** opens a right-side sheet; manager cannot edit/delete their own HR record from this list where the app restricts it.
-4. **My Leaves** — Manager can track their own leave like an employee.
-5. **Logout** — Confirm in the popup before signing out.
-
-### General
-
-- Open a nonsense URL (e.g. `/this-page-does-not-exist`) — **404** page with header and sidebar.
-- Breadcrumbs appear in the **header**; the menu toggle is on the **sidebar**.
-
----
-
-## Email (optional)
-
-To send forgot-password mail and leave notifications:
-
-1. Put SMTP settings in **`web-api/.env`** only (never commit real passwords to git).
-2. **Restart the backend** (`start-local.bat`) after changing `.env`.
-3. **Mailtrap** and similar sandboxes capture mail in their website inbox — mail will **not** arrive in Gmail until you use production SMTP (Gmail App Password, Microsoft 365, SendGrid, etc.).
-
-See **`web-api/README.md`** for what each email type contains.
-
----
-
-## Something went wrong?
+### If something fails
 
 | Problem | What to try |
 |---------|-------------|
-| Website blank or “network error” | Start **backend first**, then `npm run dev`. Check [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db). |
-| “Invalid email or password” on demo accounts | Run `python scripts\seed.py` again from `web-api` (with venv activated). |
-| Data not showing in pgAdmin | Open database **`leave_management_api`**, tables `users`, `employees`, `leave_requests`, or views `v_employee_directory`, `v_leave_request_list`. |
-| Email never arrives | Settings must be in **`web-api/.env`**, not `.env.example`. Restart backend. For Mailtrap, check the sandbox inbox online. |
-| Port already in use | Run `.\scripts\start-local.bat` again; it tries to free ports 8000–8004. |
-| `Activate.ps1` blocked | Run once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
-| Changed `.env` but nothing changed | Stop and run **`start-local.bat`** again — services load env at startup. |
+| Blank site or network error | Start the API first. Open `/health/db`. |
+| Invalid email or password on demo accounts | From `web-api` with the venv active, run `python scripts\seed.py` only if the database was empty. Otherwise the password was changed in the app. |
+| No rows in pgAdmin | Open **`leave_management_api`**. Use `users`, `employees`, `leave_requests`, or the browse views. |
+| Port already in use | Run `.\scripts\start-local.bat` again. |
+| `.env` changes ignored | Restart `start-local.bat`. Services read env at startup. |
+| Hosted login returns 500 | Confirm `DATABASE_URL` and `JWT_SECRET` are set on the Vercel **Production** environment, then redeploy. |
+
+Reset the local database: from `web-api`, `python scripts\reset_db.py`. Smoke tests: `python scripts\e2e_leaves.py`, `e2e_employees.py`, `e2e_login_security.py`.
+
+More detail: [web-api/README.md](web-api/README.md), [web-app/README.md](web-app/README.md).
 
 ---
 
-## For developers
+## Assumptions
 
-| Topic | Where to read more |
-|--------|---------------------|
-| API services, migrations, SMTP, security | [`web-api/README.md`](web-api/README.md) |
-| Frontend env vars and build | [`web-app/README.md`](web-app/README.md) |
-| Reset database | `web-api`: `python scripts\reset_db.py` |
-| Smoke tests | `web-api`: `python scripts\e2e_leaves.py`, `e2e_login_security.py` |
-
-**Build frontend for production:** `cd web-app` → `npm run build` → static files in `web-app/dist`.
+- One company, one database, one calendar year of balances at a time. The seed year is the year you run `seed.py`.
+- Weekends are Saturday and Sunday. Leave length is the count of Monday–Friday days in the range, inclusive. Half days are not a separate unit.
+- Both seeded leave types need a manager decision, except when the employee has no manager. That case is recorded as self-approved.
+- The direct manager is the approver. There is no second approval level.
+- Employee codes use the prefix `ST` (`ST-01`, `ST-02`, …).
+- The signed-in user is also an employee row. Login identity is `users`; org data is `employees`.
+- In-app notifications are enough for the product to be usable. Email is an add-on.
+- Demo passwords and the dev `JWT_SECRET` are for local review only. Production must set its own secret and database URL.
+- Reviewers use a modern desktop browser. Layout is responsive, but the walkthrough is the desktop app.
 
 ---
 
-## Project layout
+## Known limitations
 
-```
-leave-management/
-├── README.md          ← start here (this file)
-├── web-api/           ← Python API + PostgreSQL
-└── web-app/           ← React website (Vite)
-```
+- **Holidays are not deducted.** `holidays` can be stored, but the day count uses weekdays only. A public holiday on a weekday still consumes leave.
+- **No carry-over or accrual.** Balances are a yearly entitlement (`12` earned, `10` sick in the seed). They do not accrue by month and do not roll into the next year by themselves.
+- **HR and admin have no demo users.** Those roles and permissions exist. `seed.py` only creates the employee and the manager above.
+- **Notifications are polled.** The bell refreshes about every 30 seconds. There is no websocket or push notification.
+- **Email is best-effort.** With SMTP empty, messages are skipped (development may log a temporary password). A mail failure does not roll back the leave decision.
+- **Single-step approval.** A manager sees their team’s pending requests. There is no HR queue after the manager, and no delegation when the manager is away.
+- **Lockout is temporary, not an admin unlock screen.** Too many failures block sign-in for the lockout window (`login_attempts`). There is no separate “unlock user” page.
+- **Local and hosted runtimes differ.** Local mode is five processes. Vercel mode is one process plus Neon. A laptop `DATABASE_URL` (`127.0.0.1`) will not work on Vercel.
+- **Seed does not reset existing data.** If roles already exist, `seed.py` exits without changing passwords or balances.

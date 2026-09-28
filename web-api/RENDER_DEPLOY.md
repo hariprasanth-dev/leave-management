@@ -110,4 +110,4 @@ https://leave-management-six-ruby.vercel.app/login
 
 1. **Settings → Build & Deploy** → disconnect Git, reconnect same repo.  
 2. Confirm latest commit SHA on deploy event matches GitHub `main`.  
-3. Delete the Render service and recreate from root **`render.yaml`** Blueprint (optional).
+3. Delete the Render service and create it again with Root Directory `web-api` (optional).
