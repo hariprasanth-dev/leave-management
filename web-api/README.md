@@ -72,6 +72,25 @@ python scripts/seed.py
 
 - Gateway docs: http://127.0.0.1:8000/docs
 
+## Quick start (Supabase)
+
+Use the same **host / port / database / user** as Supabase → **Connect** (direct connection).
+
+1. Copy env: `copy .env.example .env`
+2. Set **`DATABASE_PASSWORD`** to the **database password** from **Project Settings → Database** (reset there if needed — not the API anon/service keys).
+3. Set **`SUPABASE_REGION`** to your project region (**Settings → General**, e.g. `ap-northeast-1`).  
+   On Windows, **`SUPABASE_USE_POOLER=true`** (default) routes through the IPv4 session pooler so the IPv6-only `db.*` host does not time out.
+4. Migrate and seed:
+
+```bash
+set PYTHONPATH=%CD%
+.venv\Scripts\alembic upgrade head
+.venv\Scripts\python scripts\seed.py
+.\scripts\start-local.bat
+```
+
+Browse data in **Supabase → Table Editor** (`users`, `employees`, `leave_requests`, …).
+
 ## Demo credentials
 
 - `employee@example.com` / `password123`
