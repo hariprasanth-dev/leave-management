@@ -21,8 +21,16 @@ function loginErrorMessage(err) {
   if (status === 405) {
     return 'API routing error (405). On Vercel, set Root Directory to the repository root (.), not web-app, then redeploy. See VERCEL_DEPLOY.md.'
   }
-  if (status === 500 || status === 502) {
-    return 'The API is not ready. Stop and re-run web-api\\scripts\\start-local.bat (it applies DB migrations), then try again.'
+  if (status === 500 || status === 502 || status === 503) {
+    const detail = err.response?.data?.detail
+    if (typeof detail === 'string') {
+      if (detail.includes('DATABASE_URL') || detail.includes('JWT_SECRET')) return detail
+      if (detail.length < 200) return detail
+    }
+    if (import.meta.env.PROD) {
+      return 'Server error. In Vercel, set DATABASE_URL (Neon) and JWT_SECRET (32+ chars), redeploy, then open /health/version.'
+    }
+    return 'The API is not ready. Run web-api\\scripts\\start-local.bat (applies DB migrations), then try again.'
   }
   return 'Sign-in failed. Please try again.'
 }

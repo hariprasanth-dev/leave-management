@@ -38,15 +38,18 @@ cd web-app\..\web-api
 .\scripts\print_neon_database_url_for_render.ps1
 ```
 
-Set in Vercel → Settings → Environment Variables:
+Set in Vercel → Settings → Environment Variables (**Production** — required for login):
 
 | Key | Value |
 |-----|--------|
-| `DATABASE_URL` | Neon pooled connection string |
+| `DATABASE_URL` | Neon **pooled** connection string (from `.env.local` or Neon dashboard) |
 | `ENVIRONMENT` | `production` |
-| `JWT_SECRET` | long random string |
+| `JWT_SECRET` | Random string **at least 32 characters** (Vercel “Generate” is fine) |
 | `FRONTEND_URL` | `https://leave-management-six-ruby.vercel.app` |
-| `INLINE_SERVICES` | `1` (set automatically in `api/index.py`) |
+
+If login returns **500** / `FUNCTION_INVOCATION_FAILED`, the API usually starts without `DATABASE_URL` or `JWT_SECRET`. After adding them, **Redeploy** (env vars apply only on new deployments).
+
+Optional: `RUN_MIGRATIONS=1` (default) runs `alembic upgrade head` on each cold start so Neon has tables like `login_attempts`.
 
 Do **not** set `VITE_API_BASE_URL` — the app calls `/api/...` on the same domain.
 

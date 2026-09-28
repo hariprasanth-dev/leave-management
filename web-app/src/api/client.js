@@ -102,6 +102,11 @@ function apiErrorMessage(err, fallback) {
     }
     return 'Backend server error (502). Try again in a minute if the API was sleeping.'
   }
+  if (status === 503 || status === 500 || status === 502) {
+    if (typeof detail === 'string' && (detail.includes('DATABASE_URL') || detail.includes('JWT_SECRET'))) {
+      return detail
+    }
+  }
   if (status === 405) {
     return 'API not deployed on this domain (405). Vercel: Root Directory must be repo root (.), not web-app.'
   }
