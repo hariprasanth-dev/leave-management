@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "_comment": "SPA-only config. Use only if API is on another host (VITE_API_BASE_URL). For same-origin /api, set Vercel Root Directory to repo root and use /vercel.json at top level.",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
