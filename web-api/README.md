@@ -117,7 +117,9 @@ Confirm: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db) (hos
 | `scripts/reset_db.py` | Drop/recreate schema, migrate, seed |
 | `scripts/e2e_leaves.py` | Leave workflow smoke test |
 | `scripts/e2e_employees.py` | Employee CRUD smoke test |
-| `scripts/setup_neon.ps1` | Migrate + seed using Neon `.env.local` |
+| `scripts/sync_local_to_neon.ps1` | Copy pgAdmin/local DB rows into Neon |
+| `scripts/sync_local_to_neon.py` | Same (use `--dry-run` first) |
+| `scripts/setup_neon.ps1` | Alembic + seed on Neon (empty DB) |
 | `scripts/verify_db.py` | Test DB connection and tables |
 | `scripts/start-local.bat` | Start gateway + 4 services |
 
