@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -12,17 +12,18 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from services.auth_service.routes import router as auth_router
 from shared.config import settings
+from shared.routers.auth import router as auth_router
 from shared.schemas import HealthResponse
+
+GATEWAY_VERSION = "0.2.0"
 
 app = FastAPI(
     title="LeaveFlow API Gateway",
-    version="0.1.0",
-    description="Routes client traffic to LeaveFlow microservices.",
+    version=GATEWAY_VERSION,
+    description="Gateway with built-in /api/auth/* routes plus proxies for other services.",
 )
 
-# Auth runs on the gateway (same DB) so login works when only the gateway is deployed.
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 app.add_middleware(
@@ -33,8 +34,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+PROXY_SERVICES = ("employees", "leaves", "approvals")
+
 ROUTE_MAP: dict[str, str] = {
-    "auth": settings.auth_service_url,
     "employees": settings.employee_service_url,
     "leaves": settings.leave_service_url,
     "approvals": settings.approval_service_url,
@@ -46,6 +48,16 @@ def health() -> HealthResponse:
     return HealthResponse(status="ok", service="gateway")
 
 
+@app.get("/health/version")
+def health_version() -> dict[str, str]:
+    """Use after deploy: must show 0.2.0+ and openapi must list /api/auth/login."""
+    return {
+        "gateway_version": GATEWAY_VERSION,
+        "auth": "built-in",
+        "login_path": "/api/auth/login",
+    }
+
+
 @app.get("/health/db")
 def health_db() -> dict[str, Any]:
     """Show which PostgreSQL database the API is writing to (for local debugging)."""
@@ -54,7 +66,6 @@ def health_db() -> dict[str, Any]:
     from shared.db.session import engine
 
     url = settings.database_url
-    # Never return password in health output
     safe_url = url.split("@")[-1] if "@" in url else url
     try:
         with engine.connect() as conn:
@@ -81,7 +92,7 @@ def health_db() -> dict[str, Any]:
 
 @app.get("/health/services")
 async def health_services() -> dict[str, Any]:
-    results: dict[str, Any] = {}
+    results: dict[str, Any] = {"auth": {"status": "ok", "location": "gateway"}}
     async with httpx.AsyncClient(timeout=5.0) as client:
         for name, base_url in ROUTE_MAP.items():
             try:
@@ -93,7 +104,6 @@ async def health_services() -> dict[str, Any]:
 
 
 def _upstream_path(service: str, path: str) -> str:
-    """Map gateway /api/{service}/... to the service's own routes."""
     if service == "employees":
         return f"/employees/{path}" if path else "/employees"
     if service == "leaves":
@@ -105,17 +115,12 @@ def _upstream_path(service: str, path: str) -> str:
 
 @app.api_route("/api/{service}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @app.api_route("/api/{service}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def proxy(service: str, request: Request, path: str = "") -> Response:
-    if service == "auth":
-        raise HTTPException(
-            status_code=404,
-            detail="Use /api/auth/login, /api/auth/me, and other documented auth routes.",
-        )
-
-    base_url = ROUTE_MAP.get(service)
-    if not base_url:
-        raise HTTPException(status_code=404, detail=f"Unknown service '{service}'")
-
+async def proxy(
+    service: Literal["employees", "leaves", "approvals"],
+    request: Request,
+    path: str = "",
+) -> Response:
+    base_url = ROUTE_MAP[service]
     upstream = f"{base_url}{_upstream_path(service, path)}"
     headers = {k: v for k, v in request.headers.items() if k.lower() not in {"host", "content-length"}}
     body = await request.body()

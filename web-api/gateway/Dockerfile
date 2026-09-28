@@ -7,8 +7,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY shared ./shared
 COPY gateway ./gateway
-COPY services/__init__.py ./services/__init__.py
-COPY services/auth_service ./services/auth_service
 
 ENV PYTHONPATH=/app
 EXPOSE 8000

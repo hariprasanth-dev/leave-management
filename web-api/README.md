@@ -119,8 +119,10 @@ The API is **five processes locally** (gateway + 4 services). A Render web servi
    - `JWT_SECRET` — strong random string
    - `FRONTEND_URL` — your Vercel URL (e.g. `https://leave-management-six-ruby.vercel.app`)
 5. After deploy, check:
-   - [https://YOUR-SERVICE.onrender.com/health/services](https://YOUR-SERVICE.onrender.com/health/services) — all services should be `"status":"ok"`, not `unreachable`
-   - `/health/db` — should show your Supabase host, not `127.0.0.1`
+   - [https://YOUR-SERVICE.onrender.com/health/version](https://YOUR-SERVICE.onrender.com/health/version) — must show **`gateway_version`: `0.2.0`** and **`auth`: `built-in`**. If you still see only `/health` in Swagger with no **`POST /api/auth/login`**, Render is serving an **old build** — use **Manual Deploy → Clear build cache & deploy**.
+   - [https://YOUR-SERVICE.onrender.com/openapi.json](https://YOUR-SERVICE.onrender.com/openapi.json) — must include **`/api/auth/login`**
+   - [https://YOUR-SERVICE.onrender.com/health/services](https://YOUR-SERVICE.onrender.com/health/services) — `auth` should be on the gateway; other services may be `unreachable` until you use the full `Dockerfile` + `start-production.sh`
+   - `/health/db` — should show your Supabase host, not `127.0.0.1`. Copy the same **`DATABASE_*` / `DATABASE_PASSWORD`** values from local `web-api/.env` into Render **Environment** (do not commit `.env`).
 
 Optional: use `render.yaml` in this folder as a Render Blueprint template.
 
