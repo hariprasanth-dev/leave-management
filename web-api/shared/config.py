@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     # Supabase direct host (db.*) is IPv6-only; pooler uses IPv4 (required on many Windows networks).
     supabase_region: str | None = None
     supabase_use_pooler: bool = True
+    supabase_project_ref: str | None = None
 
     auth_service_url: str = "http://localhost:8001"
     employee_service_url: str = "http://localhost:8002"
@@ -91,8 +92,37 @@ class Settings(BaseSettings):
             query = f"{query}&sslmode=require" if query else "sslmode=require"
         return f"postgresql+psycopg://{user_q}:{pwd_q}@{host}:{port}/{db}?{query}"
 
+    @classmethod
+    def _project_ref_from_host(cls, host: str | None) -> str | None:
+        if not host:
+            return None
+        match = _SUPABASE_DIRECT_HOST.match(host.strip())
+        return match.group(1) if match else None
+
+    @classmethod
+    def _ensure_pooler_username(cls, url: str, project_ref: str | None) -> str:
+        if not project_ref or "pooler.supabase.com" not in url:
+            return url
+        parsed = urlparse(url.replace("postgresql+psycopg://", "postgresql://", 1))
+        user = parsed.username or "postgres"
+        if user.startswith("postgres."):
+            return url
+        if user == "postgres":
+            return url
+        pooler_user = f"postgres.{project_ref}"
+        password = parsed.password or ""
+        user_q = quote_plus(pooler_user, safe="")
+        pwd_q = quote_plus(password, safe="")
+        db = quote_plus((parsed.path or "/postgres").lstrip("/") or "postgres", safe="")
+        query = parsed.query or "sslmode=require"
+        if "sslmode=" not in query:
+            query = f"{query}&sslmode=require" if query else "sslmode=require"
+        return f"postgresql+psycopg://{user_q}:{pwd_q}@{parsed.hostname}:{parsed.port or 5432}/{db}?{query}"
+
     @model_validator(mode="after")
     def resolve_database_url(self) -> "Settings":
+        project_ref = self.supabase_project_ref or self._project_ref_from_host(self.database_host)
+
         if self.database_url:
             url = self._normalize_database_url(self.database_url.strip())
             for marker in _PLACEHOLDER_MARKERS:
@@ -101,8 +131,12 @@ class Settings(BaseSettings):
                         "DATABASE_URL still contains a placeholder. Set DATABASE_PASSWORD "
                         "in web-api/.env (Supabase → Project Settings → Database)."
                     )
+            if not project_ref:
+                direct = urlparse(url.replace("postgresql+psycopg://", "postgresql://", 1))
+                project_ref = self._project_ref_from_host(direct.hostname or "")
             pooled = self._pooler_from_database_url(url, self.supabase_region, self.supabase_use_pooler)
-            self.database_url = pooled or url
+            url = pooled or url
+            self.database_url = self._ensure_pooler_username(url, project_ref)
             return self
 
         if self.database_host:
@@ -119,6 +153,8 @@ class Settings(BaseSettings):
                 host, user, port = self._apply_supabase_pooler(
                     host, user, port, self.supabase_region, True
                 )
+            elif project_ref and "pooler.supabase.com" in host and not user.startswith("postgres."):
+                user = f"postgres.{project_ref}"
             if "supabase.co" in host and not self.database_sslmode:
                 self.database_sslmode = "require"
             user_q = quote_plus(user, safe="")

@@ -74,22 +74,29 @@ python scripts/seed.py
 
 ## Quick start (Supabase)
 
-Use the same **host / port / database / user** as Supabase → **Connect** (direct connection).
+Supabase is PostgreSQL. Alembic creates the **same table names** as your local pgAdmin database (`users`, `employees`, `leave_requests`, …). On Supabase the database name is **`postgres`** (not `leave_management_api`).
 
-1. Copy env: `copy .env.example .env`
-2. Set **`DATABASE_PASSWORD`** to the **database password** from **Project Settings → Database** (reset there if needed — not the API anon/service keys).
-3. Set **`SUPABASE_REGION`** to your project region (**Settings → General**, e.g. `ap-northeast-1`).  
-   On Windows, **`SUPABASE_USE_POOLER=true`** (default) routes through the IPv4 session pooler so the IPv6-only `db.*` host does not time out.
-4. Migrate and seed:
+**Windows (recommended):**
 
-```bash
+```powershell
+cd D:\MVP\leave-management\web-api
+.\scripts\configure_supabase.ps1
+.\scripts\setup_supabase.ps1
+```
+
+Or manually: copy `.env.example` → `.env`, set **`DATABASE_PASSWORD`** and **`SUPABASE_REGION`**, then:
+
+```powershell
 set PYTHONPATH=%CD%
 .venv\Scripts\alembic upgrade head
 .venv\Scripts\python scripts\seed.py
+.venv\Scripts\python scripts\verify_db.py
 .\scripts\start-local.bat
 ```
 
-Browse data in **Supabase → Table Editor** (`users`, `employees`, `leave_requests`, …).
+Confirm: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db) and **Supabase → Table Editor**.
+
+**Render:** copy the same `DATABASE_*` / `SUPABASE_*` keys from `.env` into Environment variables.
 
 ## Demo credentials
 
