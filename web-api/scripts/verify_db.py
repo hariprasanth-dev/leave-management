@@ -1,4 +1,4 @@
-"""Verify PostgreSQL connection and LeaveFlow schema (local or Supabase)."""
+"""Verify PostgreSQL connection and LeaveFlow schema (local or Neon)."""
 
 from __future__ import annotations
 
@@ -88,9 +88,9 @@ def main() -> int:
     except Exception as exc:
         print(f"Connection failed: {exc}", file=sys.stderr)
         print(
-            "\nCheck web-api/.env:\n"
-            "  DATABASE_HOST, DATABASE_PASSWORD, SUPABASE_REGION, SUPABASE_USE_POOLER=true\n"
-            "  Or set DATABASE_URL from Supabase → Connect → URI",
+            "\nCheck DATABASE_URL:\n"
+            "  Repo root: neon link … (writes .env.local)\n"
+            "  Or web-api/.env with DATABASE_URL from Neon dashboard",
             file=sys.stderr,
         )
         return 1

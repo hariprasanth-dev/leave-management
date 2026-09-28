@@ -1,5 +1,4 @@
-# Render Blueprint — one web service runs gateway + all microservices in one container.
-# Set secrets in the Render dashboard (never commit real values).
+# Render Blueprint — gateway + optional full stack via web-api/Dockerfile
 services:
   - type: web
     name: leave-management-api
@@ -17,7 +16,3 @@ services:
         value: https://leave-management-six-ruby.vercel.app
       - key: DATABASE_URL
         sync: false
-      - key: SUPABASE_REGION
-        sync: false
-      - key: SUPABASE_USE_POOLER
-        value: "true"

@@ -72,31 +72,37 @@ python scripts/seed.py
 
 - Gateway docs: http://127.0.0.1:8000/docs
 
-## Quick start (Supabase)
+## Quick start (Neon cloud PostgreSQL)
 
-Supabase is PostgreSQL. Alembic creates the **same table names** as your local pgAdmin database (`users`, `employees`, `leave_requests`, …). On Supabase the database name is **`postgres`** (not `leave_management_api`).
-
-**Windows (recommended):**
+Neon is PostgreSQL. Link the project from the **repo root** (creates gitignored `.env.local` with `DATABASE_URL`). The Python API reads `.env.local` automatically.
 
 ```powershell
-cd D:\MVP\leave-management\web-api
-.\scripts\configure_supabase.ps1
-.\scripts\setup_supabase.ps1
-```
+cd D:\MVP\leave-management
+npm i -g neon@latest
+neon login
+neon link --project-id solitary-art-85510321 --branch production -y
+neon config init
+# edit neon.ts, then:
+neon deploy
 
-Or manually: copy `.env.example` → `.env`, set **`DATABASE_PASSWORD`** and **`SUPABASE_REGION`**, then:
-
-```powershell
-set PYTHONPATH=%CD%
-.venv\Scripts\alembic upgrade head
-.venv\Scripts\python scripts\seed.py
-.venv\Scripts\python scripts\verify_db.py
+cd web-api
+.\scripts\setup_neon.ps1
 .\scripts\start-local.bat
 ```
 
-Confirm: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db) and **Supabase → Table Editor**.
+Or migrate manually:
 
-**Render:** copy the same `DATABASE_*` / `SUPABASE_*` keys from `.env` into Environment variables.
+```powershell
+cd D:\MVP\leave-management\web-api
+$env:PYTHONPATH = (Get-Location).Path
+.\.venv\Scripts\alembic.exe upgrade head
+python scripts\seed.py
+python scripts\verify_db.py
+```
+
+Confirm: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db) (host should include `neon.tech`).
+
+**Render:** set `DATABASE_URL` to the Neon **pooled** connection string (same as `.env.local`).
 
 ## Demo credentials
 
@@ -111,6 +117,8 @@ Confirm: [http://127.0.0.1:8000/health/db](http://127.0.0.1:8000/health/db) and 
 | `scripts/reset_db.py` | Drop/recreate schema, migrate, seed |
 | `scripts/e2e_leaves.py` | Leave workflow smoke test |
 | `scripts/e2e_employees.py` | Employee CRUD smoke test |
+| `scripts/setup_neon.ps1` | Migrate + seed using Neon `.env.local` |
+| `scripts/verify_db.py` | Test DB connection and tables |
 | `scripts/start-local.bat` | Start gateway + 4 services |
 
 ## Deploy on Render (with Vercel frontend)
@@ -121,15 +129,14 @@ The API is **five processes locally** (gateway + 4 services). A Render web servi
 2. **Runtime:** Docker
 3. **Dockerfile:** `Dockerfile` (repo root under `web-api`, not `gateway/Dockerfile`)
 4. **Environment variables** (Render dashboard):
-   - `DATABASE_URL` — Supabase URI (`postgresql://…`) or use `DATABASE_HOST` + `DATABASE_PASSWORD` like local `.env`
-   - `SUPABASE_REGION` — e.g. `ap-northeast-1` if using Supabase pooler
+   - `DATABASE_URL` — Neon pooled URI (`postgresql://…neon.tech/…`)
    - `JWT_SECRET` — strong random string
    - `FRONTEND_URL` — your Vercel URL (e.g. `https://leave-management-six-ruby.vercel.app`)
 5. After deploy, check:
    - [https://YOUR-SERVICE.onrender.com/health/version](https://YOUR-SERVICE.onrender.com/health/version) — must show **`gateway_version`: `0.2.0`** and **`auth`: `built-in`**. If you still see only `/health` in Swagger with no **`POST /api/auth/login`**, Render is serving an **old build** — use **Manual Deploy → Clear build cache & deploy**.
    - [https://YOUR-SERVICE.onrender.com/openapi.json](https://YOUR-SERVICE.onrender.com/openapi.json) — must include **`/api/auth/login`**
    - [https://YOUR-SERVICE.onrender.com/health/services](https://YOUR-SERVICE.onrender.com/health/services) — `auth` should be on the gateway; other services may be `unreachable` until you use the full `Dockerfile` + `start-production.sh`
-   - `/health/db` — should show your Supabase host, not `127.0.0.1`. Copy the same **`DATABASE_*` / `DATABASE_PASSWORD`** values from local `web-api/.env` into Render **Environment** (do not commit `.env`).
+   - `/health/db` — should show a **Neon** host (`neon.tech`), not `127.0.0.1`. Use the same `DATABASE_URL` as repo `.env.local`.
 
 Optional: use `render.yaml` in this folder as a Render Blueprint template.
 

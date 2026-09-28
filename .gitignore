@@ -12,3 +12,6 @@ __pycache__/
 *.log
 *.db
 .DS_Store
+.neon
+.env.local
+node_modules/
